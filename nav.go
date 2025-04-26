@@ -97,7 +97,7 @@ func (n *nav) submitVAT(ctx app.Context, e app.Event) {
 		vat := app.Window().GetElementByID("vat-number").Get("value").String()
 		ctx.SetState("vat", vat)
 		ctx.SetState("businessName", businessName)
-		ctx.SetState("associateName", associateName)
+		ctx.SetState("associateName", associateName).Persist()
 		app.Window().GetElementByID("main-menu").Call("click")
 	}
 }

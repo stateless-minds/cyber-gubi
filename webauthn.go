@@ -1,11 +1,13 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	mathRand "math/rand"
 	"net"
 	"net/http"
@@ -22,7 +24,6 @@ import (
 )
 
 const dbUser = "user"
-const dbUserDevice = "user_device"
 
 // auth is a component that uses webauthn and biometrics. A component is a
 // customizable, independent, and reusable UI element. It is created by
@@ -32,7 +33,7 @@ type auth struct {
 	sh                     *shell.Shell
 	webAuthn               *webauthn.WebAuthn
 	descriptorJSON         string
-	userDevice             UserDevice
+	users                  []User
 	currentUser            User
 	country                string
 	region                 string
@@ -60,18 +61,12 @@ type Authenticator struct {
 	SignCount    int    `mapstructure:"signCount" json:"sign_count"`
 }
 
-type UserDevice struct {
-	ID         string `mapstructure:"_id" json:"_id" validate:"uuid_rfc4122"`               // Unique identifier for device
-	Address    string `mapstructure:"address" json:"address" validate:"uuid_rfc4122"`       // Key for device
-	Registered bool   `mapstructure:"registered" json:"registered" validate:"uuid_rfc4122"` // Check if registered
-}
-
 type User struct {
 	ID            []byte                `mapstructure:"_id" json:"_id" validate:"uuid_rfc4122"`                       // Unique identifier for the user (should be a byte array)
 	Name          string                `mapstructure:"name" json:"name" validate:"uuid_rfc4122"`                     // Username or identifier for the user
 	DisplayName   string                `mapstructure:"display_name" json:"display_name" validate:"uuid_rfc4122"`     // Display name for the user
 	CredentialIDs []webauthn.Credential `mapstructure:"credential_ids" json:"credential_ids" validate:"uuid_rfc4122"` // List of credential IDs associated with the user
-	Descriptor    map[string][]float32  `mapstructure:"descriptor" json:"descriptor" validate:"uuid_rfc4122"`         // Face descriptor for the user
+	Descriptor    json.RawMessage       `mapstructure:"descriptor" json:"descriptor" validate:"uuid_rfc4122"`         // Face descriptor for the user
 	VAT           string                `mapstructure:"vat" json:"vat" validate:"uuid_rfc4122"`                       // VAT when company
 	Country       string                `mapstructure:"country" json:"country" validate:"uuid_rfc4122"`
 	Region        string                `mapstructure:"region" json:"region" validate:"uuid_rfc4122"` // Country
@@ -194,7 +189,7 @@ func (a *auth) OnMount(ctx app.Context) {
 		log.Fatal(err)
 	}
 
-	a.fetchUser(ctx)
+	a.fetchDescriptor(ctx)
 
 	ctx.ObserveState("entity", &a.entity)
 
@@ -332,54 +327,164 @@ func NewUser() (*User, error) {
 	}, nil
 }
 
-func (a *auth) doRegister(ctx app.Context, e app.Event) {
-	a.descriptorJSON = e.Get("detail").Get("descriptor").String()
-	ctx.GetState("newAssociateName", &a.newAssociateName)
-
-	if len(a.newAssociateName) > 0 {
-		a.updateUser(ctx)
-	} else {
-		// exists, err := a.alreadyRegistered()
-		// if err != nil {
-		// 	log.Println(err)
-		// 	ctx.Notifications().New(app.Notification{
-		// 		Title: "Error",
-		// 		Body:  "Re-run the setup from https://github.com/stateless-minds/cyber-gubi-local and try again.",
-		// 	})
-		// }
-		// if exists {
-		// 	ctx.Notifications().New(app.Notification{
-		// 		Title: "Error",
-		// 		Body:  "You can not register more than one user on this device.",
-		// 	})
-		// } else {
-		app.Window().GetElementByID("main-menu").Call("click")
-		// }
+// Generate random hyperplanes for LSH
+func generateHyperplanes(dim, numHashes int) [][]float64 {
+	rand.Seed(time.Now().UnixNano())
+	hyperplanes := make([][]float64, numHashes)
+	for i := 0; i < numHashes; i++ {
+		hp := make([]float64, dim)
+		for j := 0; j < dim; j++ {
+			hp[j] = rand.NormFloat64() // Gaussian random values
+		}
+		hyperplanes[i] = hp
 	}
+	return hyperplanes
 }
 
-func (a *auth) doLogin(ctx app.Context, e app.Event) {
+// Compute binary LSH hash signature from descriptor vector and hyperplanes
+func computeLSHHash(descriptor []float64, hyperplanes [][]float64) []bool {
+	signature := make([]bool, len(hyperplanes))
+	for i, hp := range hyperplanes {
+		dot := 0.0
+		for j, val := range descriptor {
+			dot += val * hp[j]
+		}
+		signature[i] = dot >= 0
+	}
+	return signature
+}
+
+// Convert bool slice to string of '0' and '1'
+func boolSliceToString(bits []bool) string {
+	s := make([]byte, len(bits))
+	for i, bit := range bits {
+		if bit {
+			s[i] = '1'
+		} else {
+			s[i] = '0'
+		}
+	}
+	return string(s)
+}
+
+// Optionally hash the binary string to get a fixed-length bucket key
+func hashBand(band string) string {
+	h := sha256.Sum256([]byte(band))
+	return hex.EncodeToString(h[:])
+}
+
+func uniqueStrings(input []string) []string {
+	m := make(map[string]struct{})
+	var result []string
+	for _, s := range input {
+		if _, exists := m[s]; !exists {
+			m[s] = struct{}{}
+			result = append(result, s)
+		}
+	}
+	return result
+}
+
+func (a *auth) doCheck(ctx app.Context, e app.Event) {
 	a.descriptorJSON = e.Get("detail").Get("descriptor").String()
 	if len(a.descriptorJSON) == 0 {
 		log.Fatal("descriptorJSON is empty")
 	}
+	ctx.GetState("newAssociateName", &a.newAssociateName)
+	if len(a.newAssociateName) > 0 {
+		a.updateUser(ctx)
+	} else {
+		user, err := a.sh.OrbitDocsQuery(dbUser, "descriptor", a.descriptorJSON)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	var descriptor map[string][]float32
+		if len(user) == 0 {
+			// register
+			app.Window().GetElementByID("main-menu").Call("click")
+		} else {
+			// login
+			var u User
 
-	err := json.Unmarshal([]byte(a.descriptorJSON), &descriptor)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for name := range descriptor {
-		if len(a.currentUser.Descriptor[name]) > 0 {
-			ctx.SetState("userID", string(a.currentUser.ID))
-			if len(a.currentUser.VAT) > 0 {
-				ctx.SetState("isBusiness", true)
-				ctx.SetState("businessName", a.currentUser.Name)
-				ctx.SetState("associateName", name)
+			err := json.Unmarshal(user, &u)
+			if err != nil {
+				log.Fatal(err)
 			}
-			a.beginLogin(ctx, string(a.currentUser.CredentialIDs[0].ID))
+
+			currentUser := u
+			var descriptorFloat []float64
+			descriptorLSH := make(map[int][]string)
+			matches := make(map[string]int)
+
+			err = json.Unmarshal([]byte(a.descriptorJSON), &descriptorFloat)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			// Generate 32 random hyperplanes for LSH
+			hyperplanes := generateHyperplanes(128, 32)
+
+			// Compute binary LSH signature
+			signature := computeLSHHash(descriptorFloat, hyperplanes)
+
+			// Split signature into 8 bands of 4 bits each and hash each band
+			bands := 8
+			rowsPerBand := len(signature) / bands
+			for b := range bands {
+				bandBits := signature[b*rowsPerBand : (b+1)*rowsPerBand]
+				bandStr := boolSliceToString(bandBits)
+				bucketKey := hashBand(bandStr)
+				descriptorLSH[b] = append(descriptorLSH[b], bucketKey)
+				descriptorLSH[b] = uniqueStrings(descriptorLSH[b])
+			}
+
+			log.Println(descriptorLSH)
+
+			ctx.SetState("userID", string(currentUser.ID))
+			if len(currentUser.VAT) > 0 {
+				ctx.SetState("currentUser", currentUser).Persist()
+
+				var descriptorHash map[string]map[int][]string
+
+				err := json.Unmarshal(currentUser.Descriptor, &descriptorHash)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				for name, desc := range descriptorHash {
+					for _, d := range desc {
+						for _, v := range descriptorLSH {
+							for _, b := range d {
+								for _, f := range v {
+									if b == f {
+										matches[name]++
+									}
+								}
+							}
+						}
+					}
+				}
+
+				log.Println("matches: ", matches)
+
+				var maxKey string
+				var maxValue int
+				first := true
+
+				for k, v := range matches {
+					if first || v > maxValue {
+						maxValue = v
+						maxKey = k
+						first = false
+					}
+				}
+
+				ctx.SetState("associateName", maxKey).Persist()
+				ctx.SetState("businessName", currentUser.DisplayName)
+				ctx.SetState("isBusiness", true)
+			}
+
+			a.beginLogin(ctx, string(currentUser.CredentialIDs[0].ID))
 		}
 	}
 }
@@ -403,115 +508,15 @@ func daysRemainingInMonth(date time.Time) int {
 	return days
 }
 
-func (a *auth) fetchUser(ctx app.Context) {
-	descriptor := map[string][]float32{}
-	var descriptorJSON []byte
-	err := a.getUser(ctx)
-	if err != nil {
-		log.Println(err)
-		descriptorJSON, err = json.Marshal(descriptor)
-	} else {
-		descriptorJSON, err = json.Marshal(a.currentUser.Descriptor)
-	}
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
+func (a *auth) fetchDescriptor(ctx app.Context) {
 	// Send response event to child
 	app.Window().Get("parent").Get("window").Call("dispatchEvent", // Target the iframe's window
-		app.Window().Get("CustomEvent").New("descriptorsFetched", map[string]interface{}{
-			"detail": map[string]interface{}{
-				"descriptors": string(descriptorJSON),
-			},
-		}),
+		app.Window().Get("CustomEvent").New("fetchDescriptor"),
 	)
-
 	days := daysRemainingInMonth(time.Now())
 	if days <= 3 {
 		a.getIncome(ctx)
 	}
-}
-
-func (a *auth) alreadyRegistered() (bool, error) {
-	d, err := a.sh.OrbitDocsGet(dbUserDevice, "mac")
-	if err != nil {
-		return false, err
-	}
-
-	var userDevice []UserDevice
-
-	err = json.Unmarshal([]byte(d), &userDevice) // Unmarshal the byte slice directly
-	if err != nil {
-		return false, err
-	}
-
-	if len(userDevice) > 0 {
-		a.userDevice = userDevice[0]
-		if userDevice[0].Registered {
-			return true, nil
-		}
-	}
-
-	return false, nil
-}
-
-func (a *auth) flagRegistered(ctx app.Context) {
-	ctx.Async(func() {
-		userDevice := UserDevice{
-			ID:         a.userDevice.ID,
-			Address:    a.userDevice.Address,
-			Registered: true,
-		}
-
-		deviceJSON, err := json.Marshal(userDevice) // Unmarshal the byte slice directly
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = a.sh.OrbitDocsPut(dbUserDevice, deviceJSON)
-		if err != nil {
-			log.Fatal(err)
-		}
-	})
-}
-
-func (a *auth) getUser(ctx app.Context) error {
-	res, err := a.sh.OrbitDocsQueryEnc(dbUser, "own", "")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// sanitize json
-	res1 := strings.ReplaceAll(string(res), "\\", "")
-
-	res2 := strings.ReplaceAll(res1, `""`, `"`)
-
-	res3 := strings.ReplaceAll(res2, `"[`, `[`)
-
-	res4 := strings.ReplaceAll(res3, `:",`, `:"",`)
-
-	res5 := strings.ReplaceAll(res4, `]"`, `]`)
-
-	res6 := strings.ReplaceAll(res5, `"{`, `{`)
-
-	res7 := strings.ReplaceAll(res6, `}"`, `}`)
-
-	users := []User{}
-
-	if len(res) == 0 {
-		return errors.New("no user found")
-	}
-
-	err = json.Unmarshal([]byte(res7), &users)
-	if err != nil {
-		return err
-	}
-
-	a.currentUser = users[0]
-	ctx.SetState("currentUser", a.currentUser)
-
-	return nil
 }
 
 func (a *auth) deleteUsers() {
@@ -523,19 +528,23 @@ func (a *auth) deleteUsers() {
 
 func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 	ctx.Async(func() {
-		var descriptor []float32
+		var descriptor []float64
 		err := json.Unmarshal([]byte(a.descriptorJSON), &descriptor)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		descriptorMap := make(map[string][]float32)
+		descriptorMap := make(map[string][]float64)
 		if len(a.associateName) == 0 {
 			// pseudonymous for individuals
 			descriptorMap["user"] = descriptor
 		} else {
 			descriptorMap[a.associateName] = descriptor
-			ctx.SetState("associateName", &a.associateName)
+		}
+
+		dm, err := json.Marshal(descriptorMap)
+		if err != nil {
+			log.Fatal(err)
 		}
 
 		user := User{
@@ -547,7 +556,7 @@ func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 					ID: []byte(credentialID),
 				},
 			},
-			Descriptor: descriptorMap,
+			Descriptor: dm,
 			VAT:        a.vat,
 			Country:    a.country,
 			Region:     a.region,
@@ -558,42 +567,62 @@ func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 			log.Fatal(err)
 		}
 
-		err = a.sh.OrbitDocsPutEnc(dbUser, userJSON)
+		err = a.sh.OrbitDocsPut(dbUser, userJSON)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		ctx.Dispatch(func(ctx app.Context) {
 			a.currentUser = user
-			a.flagRegistered(ctx)
+			if len(a.currentUser.VAT) > 0 {
+				ctx.SetState("currentUser", a.currentUser).Persist()
+				ctx.SetState("isBusiness", true)
+			}
 		})
 	})
 }
 
 func (a *auth) updateUser(ctx app.Context) {
 	ctx.Async(func() {
-		var descriptor []float32
+		var descriptor []float64
 		err := json.Unmarshal([]byte(a.descriptorJSON), &descriptor)
 		if err != nil {
 			log.Fatal(err)
 		}
-		a.currentUser.Descriptor[a.newAssociateName] = descriptor
+
+		ctx.GetState("currentUser", &a.currentUser)
+
+		var descriptorHashes map[string]interface{}
+
+		err = json.Unmarshal(a.currentUser.Descriptor, &descriptorHashes)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		descriptorHashes[a.newAssociateName] = descriptor
+
+		a.currentUser.Descriptor, err = json.Marshal(descriptorHashes)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		userJSON, err := json.Marshal(a.currentUser)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = a.sh.OrbitDocsPutEnc(dbUser, userJSON)
+		err = a.sh.OrbitDocsPut(dbUser, userJSON)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		ctx.Dispatch(func(ctx app.Context) {
 			ctx.DelState("newAssociateName")
+			ctx.DelState("currentUser")
+			ctx.DelState("associateName")
 			ctx.Notifications().New(app.Notification{
 				Title: "Success",
-				Body:  "You have added associate " + a.newAssociateName + ". Any of you can log in now.",
+				Body:  "Associate " + a.newAssociateName + " has been added. Any of you can log in now. To use another device simply copy keys across.",
 			})
 			ctx.Reload()
 		})
@@ -601,7 +630,7 @@ func (a *auth) updateUser(ctx app.Context) {
 }
 
 func (a *auth) checkForDuplicates(ctx app.Context) bool {
-	res, err := a.sh.OrbitDocsQueryEnc(dbUser, "all", "")
+	res, err := a.sh.OrbitDocsQuery(dbUser, "all", "")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -887,8 +916,7 @@ func (a *auth) Render() app.UI {
 						app.Span().Class("auth-message").Text("Authenticating"),
 						app.Span().Class("blinking").Text("..."),
 					),
-					app.Input().ID("register-btn").OnClick(a.doRegister).Hidden(true),
-					app.Input().ID("login-btn").OnClick(a.doLogin).Hidden(true),
+					app.Input().ID("check-btn").OnClick(a.doCheck).Hidden(true),
 				),
 			),
 		),

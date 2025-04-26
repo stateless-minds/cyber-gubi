@@ -2,55 +2,45 @@ document.addEventListener("DOMContentLoaded", (event) => {
     startVideo();
 });
 
-function startVideo() {
+async function startVideo() {
     // Set desired dimensions
     const desiredWidth = 225;
     const desiredHeight = 225;
-    navigator.getUserMedia(
-        { video: { width: desiredWidth, height: desiredHeight } },
-        stream => {
-            video.srcObject = stream;
-            video.width = desiredWidth;   // Set video width
-            video.height = desiredHeight;  // Set video height
-            canvas.width = desiredWidth;
-            canvas.height = desiredHeight;
-        },
-        err => console.error(err)
-    );
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: desiredWidth, height: desiredHeight }
+        });
+
+        const video = document.querySelector('video'); // Ensure you have a video element in your HTML
+        const canvas = document.querySelector('canvas'); // Ensure you have a canvas element in your HTML
+
+        video.srcObject = stream;
+        video.width = desiredWidth;   // Set video width
+        video.height = desiredHeight; // Set video height
+        canvas.width = desiredWidth;  // Set canvas width
+        canvas.height = desiredHeight; // Set canvas height
+    } catch (err) {
+        console.error('Error accessing media devices:', err);
+    }
 }
 
-window.addEventListener('descriptorsFetched', (event) => {
-    const jsonData = event.detail.descriptors;
-    
-    // Parse the JSON string into an object
-    const parsedData = JSON.parse(jsonData);
-    
-    // Initialize an object to hold all reference descriptors
-    const referenceDescriptors = {};
-
-    // Iterate over each object in the parsed data
-    Object.keys(parsedData).forEach(key => {
-        // console.log(`Key: ${key}, Values: ${parsedData[key]}`);
-        // Extract values from the current object and store them in referenceDescriptors
-        referenceDescriptors[key] = parsedData[key];
-    });
-
-    console.log(referenceDescriptors); // This will log an array of arrays
-    initializeFaceRecognition(referenceDescriptors);
+window.addEventListener('fetchDescriptor', (event) => {
+    setTimeout(() => {
+        referenceDescriptors = {}
+        initializeFaceRecognition(referenceDescriptors);
+    }, 2000); // Executes after 2 seconds
 });
 
 async function initializeFaceRecognition(referenceDescriptors) {
     const video = document.getElementById("video");
     const canvas = document.getElementById("canvas");
-    const registerButton = window.parent.document.getElementById('register-btn');
-    const loginButton = window.parent.document.getElementById('login-btn');
+    const checkButton = window.parent.document.getElementById('check-btn');
     const confidenceThreshold = 0.70;
-    const distanceThreshold = 0.6; // Adjust as needed
     const numDescriptorsToCollect = 10; // Number of descriptors to collect
     let collectedDescriptors = []; // Array to store descriptors
     let isCollecting = false; // Flag to indicate if collecting is in progress
     let intervalId; // Variable to store the interval ID
-    let loginSuccessful = false; // ADDED: Flag to prevent multiple logins
 
     // Liveness challenge variables
     let challenge = null;
@@ -70,6 +60,17 @@ async function initializeFaceRecognition(referenceDescriptors) {
         return challenges[randomIndex];
     }
 
+    function drawFaceGuide(ctx, width, height, color) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        // Draw an oval centered in the canvas
+        ctx.ellipse(width / 2, height / 2, width * 0.35, height * 0.45, 0, 0, 2 * Math.PI);
+        ctx.stroke();
+        ctx.restore();
+    }    
+
     if (!(video instanceof HTMLVideoElement)) {
         console.error("Error: 'video' is NOT an HTMLVideoElement.", video);
         // alert("Critical Error:  Video element is not valid. See console.");  // Make it obvious
@@ -78,13 +79,13 @@ async function initializeFaceRecognition(referenceDescriptors) {
     }
 
     if (!video.srcObject) {
-        console.error("Error: 'video' element has no srcObject (no stream).", video);
+        console.error("Error: 'video' element has no srcObject (no stream).", video.srcObject);
         // alert("Critical Error: Video stream not connected. See console.");
         location.reload();
         return;
     }
 
-    if (!video || !canvas || !registerButton || !loginButton) {
+    if (!video || !canvas || !checkButton) {
         console.error('Video, canvas, or button element not found!');
         return;
     }
@@ -109,15 +110,6 @@ async function initializeFaceRecognition(referenceDescriptors) {
     // Load anti-spoofing model
     const spoofModel = await tf.loadGraphModel('/web/models/anti-spoofing.json');
 
-    // Function to calculate Euclidean distance
-    function calculateDistance(descriptor1, descriptor2) {
-        if (!descriptor1 || !descriptor2) {
-            console.warn("One or both descriptors are null/undefined in calculateDistance");
-            return Infinity; // Or some other large value
-        }
-        return faceapi.euclideanDistance(descriptor1, descriptor2);
-    }
-
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
     const displaySize = { width: videoWidth, height: videoHeight };
@@ -127,6 +119,7 @@ async function initializeFaceRecognition(referenceDescriptors) {
         const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptors().withFaceExpressions(); // Added face expressions
         const resizedDetections = faceapi.resizeResults(detections, displaySize);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawFaceGuide(ctx, canvas.width, canvas.height, "red");
 
         // Check for multiple faces
         if (resizedDetections.length > 1) {
@@ -148,8 +141,30 @@ async function initializeFaceRecognition(referenceDescriptors) {
         // Now we know resizedDetections.length === 1
         const detection = resizedDetections[0]; // Access the first (and only) element
         const box = detection.detection.box;
-        const drawBox = new faceapi.draw.DrawBox(box, { label: 'Unknown' });
-        drawBox.draw(canvas);
+
+        // --- Alignment Check ---
+        const guideWidth = canvas.width * 0.4;   // Same as in drawFaceGuide
+        const guideHeight = canvas.height * 0.5;  // Same as in drawFaceGuide
+        const guideX = canvas.width / 2;        // Center X
+        const guideY = canvas.height / 2;       // Center Y
+
+        // Convert bounding box coordinates to match the ellipse center
+        const faceCenterX = box.x + (box.width / 2);
+        const faceCenterY = box.y + (box.height / 2);
+
+        // Check if face center is within the ellipse bounds
+        const isAligned = (Math.pow((faceCenterX - guideX) / guideWidth, 2) + Math.pow((faceCenterY - guideY) / guideHeight, 2)) <= 1;
+        if (isAligned) {
+            // Change guide color or show a message
+            drawFaceGuide(ctx, canvas.width, canvas.height, "green");
+            ctx.fillStyle = "green";
+            ctx.fillText("Face aligned!", 10, 30);
+        } else {
+            drawFaceGuide(ctx, canvas.width, canvas.height, "red");
+        }
+
+        // const drawBox = new faceapi.draw.DrawBox(box, { label: 'Unknown' });
+        // drawBox.draw(canvas);
 
         const SPOOF_INPUT_SIZE = 128; // 128x128 pixels
         const SPOOF_THRESHOLD = 0.8; // 80% confidence threshold
@@ -246,48 +261,11 @@ async function initializeFaceRecognition(referenceDescriptors) {
         // }
 
         if (detection.detection.score > confidenceThreshold && isRealFace) { // Check confidence
-            if (!loginSuccessful && challengeSuccess) { // ADDED challengeSuccess check
-                Object.keys(referenceDescriptors).forEach(key => {
-                    // for (const refDescriptor of referenceDescriptors) {
-                        // console.log("refDescriptor: ", referenceDescriptors[key]);
-                        // console.log("detection.descriptor: ", detection.descriptor);
-                        const distance = calculateDistance(referenceDescriptors[key], detection.descriptor);
-                        if (distance < distanceThreshold) {
-                            // **CRITICAL: CLEAR INTERVAL FIRST**
-                            clearInterval(intervalId);
-                            console.log("Face recognition stopped after successful login.");
-
-                            loginSuccessful = true; // ADDED: Set loginSuccessful
-
-                            drawBox.options.label = 'Matched face';
-                            drawBox.draw(canvas);
-
-                            const obj = {
-                                [key]: referenceDescriptors[key]
-                              };
-
-                            // Dispatch login event with the matched reference descriptor
-                            const loginEvent = new CustomEvent('click', {
-                                detail: {
-                                    descriptor: JSON.stringify(obj), // Send only the matched descriptor
-                                }
-                            });
-
-                            loginButton.dispatchEvent(loginEvent);
-
-                            console.log("Login event dispatched!", loginEvent.detail);
-
-                            // break; // Exit the for...of loop
-                        }
-                    // }
-                })
-            }
-
             // New face detected
-            drawBox.options.label = 'New Face - Processing...';
-            drawBox.draw(canvas);
+            // drawBox.options.label = 'New Face - Processing...';
+            // drawBox.draw(canvas);
 
-            if (!isCollecting && !loginSuccessful && challengeSuccess) { // ADDED challengeSuccess check
+            if (!isCollecting && challengeSuccess) { // ADDED challengeSuccess check
                 isCollecting = true;
                 collectedDescriptors = []; // Reset the array
                 console.log("Collecting new descriptors...");
@@ -302,20 +280,19 @@ async function initializeFaceRecognition(referenceDescriptors) {
                     // Calculate the average descriptor
                     const averageDescriptor = calculateAverageDescriptor(collectedDescriptors);
                     if (averageDescriptor) {
-                        // Dispatch custom event with the raw average descriptor
-                        const registerEvent = new CustomEvent('click', {
-                            detail: {
-                                descriptor: JSON.stringify(Array.from(averageDescriptor)),
-                            }
-                        });
+                            // Dispatch custom event with the raw average descriptor
+                            const checkEvent = new CustomEvent('click', {
+                                detail: {
+                                    descriptor: JSON.stringify(Array.from(averageDescriptor)),
+                                }
+                            });
 
-                        registerButton.dispatchEvent(registerEvent);
+                            checkButton.dispatchEvent(checkEvent);
 
-                        console.log("Registration data dispatched!", registerEvent.detail);
+                            console.log("Check data dispatched!", checkEvent.detail);
 
-                        // Stop the interval
-                        clearInterval(intervalId);
-                        console.log("Face recognition stopped after successful registration.");
+                            // Stop the interval
+                            clearInterval(intervalId);
                     } else {
                         console.warn("Could not calculate average descriptor.  Registration aborted.");
                         isCollecting = false; // Reset collection
@@ -323,8 +300,8 @@ async function initializeFaceRecognition(referenceDescriptors) {
                 }
             }
         } else {
-            drawBox.options.label = `Confidence: ${detection.detection.score.toFixed(2)}`;
-            drawBox.draw(canvas);
+            // drawBox.options.label = `Confidence: ${detection.detection.score.toFixed(2)}`;
+            // drawBox.draw(canvas);
             // Show spoof warning
             // if (!isRealFace) {
             //     ctx.fillStyle = "red";
@@ -346,7 +323,7 @@ async function initializeFaceRecognition(referenceDescriptors) {
         const numDescriptors = descriptors.length;
         const descriptorSize = descriptors[0].length; // Should be 128
 
-        const sumDescriptor = new Float32Array(descriptorSize);
+        const sumDescriptor = new Float64Array(descriptorSize);
 
         for (let i = 0; i < numDescriptors; i++) {
             const descriptor = descriptors[i];
@@ -355,14 +332,14 @@ async function initializeFaceRecognition(referenceDescriptors) {
                 continue; // Skip malformed descriptors
             }
             for (let j = 0; j < descriptorSize; j++) {
-                sumDescriptor[j] += descriptor[j];
+                sumDescriptor[j] += parseFloat(descriptor[j].toFixed(7));
             }
         }
 
         // Calculate the average
-        const averageDescriptor = new Float32Array(descriptorSize);
+        const averageDescriptor = new Float64Array(descriptorSize);
         for (let i = 0; i < descriptorSize; i++) {
-            averageDescriptor[i] = sumDescriptor[i] / numDescriptors;
+            averageDescriptor[i] = parseFloat((sumDescriptor[i] / numDescriptors).toFixed(7));
         }
 
         return averageDescriptor;

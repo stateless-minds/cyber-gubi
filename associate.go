@@ -21,6 +21,7 @@ type associate struct {
 	newAssociateName string
 	associates       []string
 	currentUser      User
+	descriptor       string
 }
 
 func (a *associate) OnMount(ctx app.Context) {
@@ -34,15 +35,9 @@ func (a *associate) OnMount(ctx app.Context) {
 
 	ctx.GetState("userID", &a.userID)
 
-	log.Println("associate.UserID: ", a.userID)
-
 	ctx.GetState("associateName", &a.associateName)
 
-	log.Println("associate.associateName: ", a.associateName)
-
 	ctx.GetState("currentUser", &a.currentUser)
-
-	// log.Println("associate.currentUser: ", a.currentUser)
 
 	a.getAssociates()
 }
@@ -51,7 +46,14 @@ func (a *associate) getAssociates() {
 
 	associateNames := []string{}
 
-	for name := range a.currentUser.Descriptor {
+	var descriptor map[string]map[string][]string
+
+	err := json.Unmarshal(a.currentUser.Descriptor, &descriptor)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for name := range descriptor {
 		if name != a.associateName {
 			associateNames = append(associateNames, name)
 		}
@@ -77,7 +79,14 @@ func (a *associate) removeAssociate(ctx app.Context, e app.Event) {
 	e.PreventDefault()
 	name := ctx.JSSrc().Get("value").String()
 
-	for associate := range a.currentUser.Descriptor {
+	var descriptor map[string]map[string][]string
+
+	err := json.Unmarshal(a.currentUser.Descriptor, &descriptor)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for associate := range descriptor {
 		if name == associate {
 			a.updateUser(ctx, name)
 		}
@@ -88,19 +97,27 @@ func (a *associate) removeAssociate(ctx app.Context, e app.Event) {
 func (a *associate) updateUser(ctx app.Context, name string) {
 	ctx.Async(func() {
 		user := a.currentUser
-		delete(user.Descriptor, name)
+
+		var descriptor map[string]map[string][]string
+
+		err := json.Unmarshal(a.currentUser.Descriptor, &descriptor)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		delete(descriptor, name)
 		userJSON, err := json.Marshal(user)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = a.sh.OrbitDocsPutEnc(dbUser, userJSON)
+		err = a.sh.OrbitDocsPut(dbUser, userJSON)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		ctx.Dispatch(func(ctx app.Context) {
-			delete(a.currentUser.Descriptor, name)
+			delete(descriptor, name)
 			for i, associate := range a.associates {
 				if associate == name {
 					a.associates = slices.Delete(a.associates, i, i+1)

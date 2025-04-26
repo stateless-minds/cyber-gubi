@@ -6,7 +6,7 @@ require (
 	github.com/go-webauthn/webauthn v0.11.2
 	github.com/google/uuid v1.6.0
 	github.com/maxence-charriere/go-app/v10 v10.0.9
-	github.com/stateless-minds/go-ipfs-api v0.7.9
+	github.com/stateless-minds/go-ipfs-api v0.8.8
 )
 
 require (

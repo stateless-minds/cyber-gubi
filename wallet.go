@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -347,7 +348,7 @@ func (w *wallet) getIncome(ctx app.Context) {
 		income := []Income{}
 
 		if len(i) == 0 {
-			log.Fatal(err)
+			log.Fatal(errors.New("no income set"))
 		}
 
 		err = json.Unmarshal([]byte(i), &income) // Unmarshal the byte slice directly
