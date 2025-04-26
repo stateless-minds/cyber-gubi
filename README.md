@@ -111,7 +111,7 @@ They need coordination. We need only connection.
 
 ## Important
 
-+ Cyber-gubi is fully GDPR compliant - the collected biometrics data is encrypted and stored in a public p2p database. The user generates and owns the private keys, account and personal data can be deleted anytime.
++ Cyber-gubi is fully GDPR compliant - the collected biometrics data is hashed via locality-sensitive hashing and stored in a public p2p database. The hash is irreversable to original data.
 + To receive your basic income you need to login in the span of the last 3 days of each month, see "How to use" for more details
 
 ## What is it
