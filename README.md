@@ -1,7 +1,5 @@
 # cyber-gubi - Guaranteed unconditional basic income digital currency
 
-WIP - not ready for production use, all databases will be recreated upon launch
-
 ## Screenshots
 
 <a display="inline" href="./assets/authentication.png?raw=true">
@@ -16,6 +14,100 @@ WIP - not ready for production use, all databases will be recreated upon launch
 <a display="inline" href="./assets/payment.png?raw=true">
 <img src="./assets/payment.png" width="20%" alt="Screenshot of the payment screen" title="Screenshot of the payment screen">
 </a>
+
+# GUBI: General Use Basic Income
+
+**"To own nothing and fear nothing. To use freely and live fully."**
+
+---
+
+## The Premise
+
+GUBI is a prototype for a post-scarcity economic framework built on **trust, presence, and freedom**, not compliance, debt, or work-for-survival conditioning.
+
+In a world where digital identity is weaponized and autonomy is eroded, GUBI offers a parallel track: a basic income system untethered from labor metrics, surveillance scoring, or centralized ownership models.
+
+This is not charity. This is not conditional welfare. This is the **re-activation of dignity** as the basis for participation.
+
+---
+
+## Core Principles
+
+- **Presence over Productivity**
+  - You earn by existing within the system, not by "performing value" in externally defined ways.
+
+- **Trust before Control**
+  - GUBI assumes good faith by default. Reputation is emergent, not imposed.
+
+- **Use over Ownership**
+  - Property hoarding is unnecessary. Tools, goods, and services circulate based on need and proximity, not accumulation.
+
+- **Spontaneity over Prevention**
+  - We design for self-healing through motivation and emergence, not brittle rulesets or anticipatory policing.
+
+- **Scaling by Resonance**
+  - GUBI does not seek mass adoption through marketing or mandates. It grows when it is found and chosen.
+
+---
+
+## How It Works
+
+**1. Proof-of-Presence:**
+- Users connect to the system through voluntary attestation mechanisms.
+- Currency is emitted periodically simply by being "alive" in the network.
+
+**2. Dynamic Emission Control:**
+- GUBI supply flexes organically based on human presence — not through centralized levers or policy edicts.
+- Inflation and scarcity reflect social balance, not market manipulation.
+
+**3. Peer-to-Peer Commons:**
+- Goods and services are offered freely or for GUBI within autonomous micro-networks.
+- Reciprocity emerges socially, not contractually.
+
+---
+
+## Why Now
+
+The so-called "Fourth Industrial Revolution" seeks to shackle human agency to digital ledgers, carbon credits, programmable money, social compliance wallets. Under the banner of "convenience," sovereignty is being atomized into permissions granted by unseen hands.
+
+GUBI exists to preemptively seed an alternative. **A way out, already waiting.**
+
+We are small. We are agile. We are human.
+
+They need coordination. We need only connection.
+
+---
+
+## Goals
+
+- **Short-Term:**
+  - Build and deploy a minimal viable GUBI infrastructure outside traditional ID verification systems.
+  - Foster initial micro-economies based on real use and trust.
+
+- **Medium-Term:**
+  - Create bridges to physical goods and services without ownership locks.
+  - Enable self-repair, federation, and forkability by design.
+
+- **Long-Term:**
+  - Cultivate parallel societies that operate on dignity-first economics.
+  - Serve as living proof that autonomy was, and is always possible.
+
+---
+
+## Next Steps
+
+1. Complete initial GUBI emission and attestation protocols.
+2. Launch limited pilot communities.
+3. Document failures and iterate openly.
+4. Spread only through resonance and invitation, not advertising.
+
+---
+
+> *Expect anything. Fear nothing. Build anyway.*
+
+---
+
+(Work in progress. We grow through action.)
 
 ## Important
 
