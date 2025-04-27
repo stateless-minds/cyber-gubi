@@ -73,9 +73,6 @@ type Country struct {
 	States map[string]State `json:"states,omitempty"` // Use a map for dynamic state keys
 }
 
-// Top-level struct to hold country data
-type TaxData map[string]Country
-
 func (p *payment) OnMount(ctx app.Context) {
 	sh := shell.NewShell("localhost:5001")
 	p.sh = sh
@@ -306,59 +303,6 @@ func (p *payment) doPayment(ctx app.Context, e app.Event) {
 			totalCost += ps.Price * ps.Amount
 		}
 
-		user, err := p.getUser(receiverID)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if p.isBusiness {
-			// B2B
-			if len(user.VAT) > 0 {
-				data := getSalesTaxJSON()
-
-				// Unmarshal the JSON data into the struct
-				var obj TaxData
-				err := json.Unmarshal([]byte(data), &obj)
-				if err != nil {
-					log.Fatal("Error unmarshaling JSON:", err)
-				}
-
-				for countryCode, taxCountry := range obj {
-					if countryCode == user.Country {
-						if countryCode != "US" && countryCode != "CA" && countryCode != "ES" {
-							vatTax := totalCost * int(taxCountry.Rate)
-							log.Println("vat tax: ", vatTax)
-							// debit vat tax to country of p.user
-							totalCost = totalCost + vatTax
-							log.Println("totalCost: ", totalCost)
-						} else {
-							for stateName, state := range taxCountry.States {
-								if p.region == stateName {
-									stateTax := totalCost * int(state.Rate)
-									log.Println("state tax: ", stateTax)
-									// debit stateTax to country of p.user
-								}
-							}
-						}
-					}
-				}
-			} else {
-				// B2C
-				// debit income tax to country of p.user
-			}
-		} else {
-			// C2B
-			if len(user.VAT) > 0 {
-				// debit vat tax to country of p.user
-			} else {
-				// C2C
-				// debit income tax to country of seller
-			}
-
-		}
-
-		return
-
 		transaction.TotalCost = totalCost
 
 		if p.userBalance.Balance-totalCost < 0 {
@@ -369,7 +313,7 @@ func (p *payment) doPayment(ctx app.Context, e app.Event) {
 			return
 		}
 		// update sender balance
-		err = p.updateBalance(p.userID, p.userBalance.Balance-totalCost, p.userBalance.Income, p.userBalance.LastReceived)
+		err := p.updateBalance(p.userID, p.userBalance.Balance-totalCost, p.userBalance.Income, p.userBalance.LastReceived)
 		if err != nil {
 			log.Fatal(err)
 		}
