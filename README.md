@@ -185,8 +185,7 @@ git clone https://github.com/stateless-minds/cyber-gubi-local.git
 + Businesses simplify their business models, get predictable profits and reduce costs
 + People no longer need storage
 + Circular economy generates less waste
-+ Governments have regulator accounts where they can adjust settings such as tax
-+ Tax is collected automatically by an open-source algorithm
++ Governments have accounts where they can view all transactions and collect tax
 
 ## Simplified
 + Businesses register on the platform in a waitlist
@@ -215,7 +214,7 @@ git clone https://github.com/stateless-minds/cyber-gubi-local.git
 
 - [x] Add Presentation Attack Detection model to prevent malicious attempts to abuse facial recognition
 - [ ] Introduce registration for businesses via waiting list
-- [ ] Introduce governments as regulators - they have an admin panel to configure tax percentage, an open-source algorithm collects taxes automatically on each transaction. Governments have no control over the system and can only collect if they have an account
+- [ ] Introduce governments to collect tax - they can view all transactions and collect for their own country. Governments have no control over the system and can only collect if they have an account
 - [ ] Update kubo to latest version
 - [ ] Port go-ipfs-api orbit-db integration to kubo/rpc
 
