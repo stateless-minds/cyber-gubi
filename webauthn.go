@@ -33,7 +33,6 @@ type auth struct {
 	sh                     *shell.Shell
 	webAuthn               *webauthn.WebAuthn
 	descriptorJSON         string
-	users                  []User
 	currentUser            User
 	country                string
 	region                 string
@@ -43,7 +42,7 @@ type auth struct {
 	businessName           string
 	associateName          string
 	newAssociateName       string
-	vat                    string
+	businessID             string
 }
 
 // Credential represents the structure for credential information.
@@ -67,7 +66,7 @@ type User struct {
 	DisplayName   string                `mapstructure:"display_name" json:"display_name" validate:"uuid_rfc4122"`     // Display name for the user
 	CredentialIDs []webauthn.Credential `mapstructure:"credential_ids" json:"credential_ids" validate:"uuid_rfc4122"` // List of credential IDs associated with the user
 	Descriptor    json.RawMessage       `mapstructure:"descriptor" json:"descriptor" validate:"uuid_rfc4122"`         // Face descriptor for the user
-	VAT           string                `mapstructure:"vat" json:"vat" validate:"uuid_rfc4122"`                       // VAT when company
+	BusinessID    string                `mapstructure:"business_id" json:"business_id" validate:"uuid_rfc4122"`       // Company business ID
 	Country       string                `mapstructure:"country" json:"country" validate:"uuid_rfc4122"`
 	Region        string                `mapstructure:"region" json:"region" validate:"uuid_rfc4122"` // Country
 }
@@ -168,7 +167,7 @@ func (a *auth) OnMount(ctx app.Context) {
 	sh := shell.NewShell("localhost:5001")
 	a.sh = sh
 
-	a.findCountry(ctx)
+	// a.findCountry(ctx)
 
 	// a.deleteUsers()
 	// return
@@ -200,8 +199,9 @@ func (a *auth) OnMount(ctx app.Context) {
 			}
 		})
 
-	ctx.ObserveState("vat", &a.vat).
+	ctx.ObserveState("businessID", &a.businessID).
 		OnChange(func() {
+			log.Println("a.businessID: ", a.businessID)
 			if a.entity == "business" && a.termsAccepted {
 				ctx.GetState("businessName", &a.businessName)
 				ctx.GetState("associateName", &a.associateName)
@@ -441,7 +441,7 @@ func (a *auth) doCheck(ctx app.Context, e app.Event) {
 			log.Println(descriptorLSH)
 
 			ctx.SetState("userID", string(currentUser.ID))
-			if len(currentUser.VAT) > 0 {
+			if len(currentUser.BusinessID) > 0 {
 				ctx.SetState("currentUser", currentUser).Persist()
 
 				var descriptorHash map[string]map[int][]string
@@ -472,6 +472,13 @@ func (a *auth) doCheck(ctx app.Context, e app.Event) {
 				first := true
 
 				for k, v := range matches {
+					if v == maxValue {
+						ctx.Notifications().New(app.Notification{
+							Title: "Error",
+							Body:  "Face not recognized. Trying again.",
+						})
+						ctx.Reload()
+					}
 					if first || v > maxValue {
 						maxValue = v
 						maxKey = k
@@ -557,7 +564,7 @@ func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 				},
 			},
 			Descriptor: dm,
-			VAT:        a.vat,
+			BusinessID: a.businessID,
 			Country:    a.country,
 			Region:     a.region,
 		}
@@ -574,7 +581,7 @@ func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 
 		ctx.Dispatch(func(ctx app.Context) {
 			a.currentUser = user
-			if len(a.currentUser.VAT) > 0 {
+			if len(a.currentUser.BusinessID) > 0 {
 				ctx.SetState("currentUser", a.currentUser).Persist()
 				ctx.SetState("isBusiness", true)
 			}
@@ -658,11 +665,11 @@ func (a *auth) checkForDuplicates(ctx app.Context) bool {
 						duplicates = true
 						break
 					}
-				} else if k == "vat" {
-					if v == a.vat {
+				} else if k == "business_id" {
+					if v == a.businessID {
 						ctx.Notifications().New(app.Notification{
 							Title: "Registration error",
-							Body:  "Business with this VAT number already exists.",
+							Body:  "Business with this ID already exists.",
 						})
 						duplicates = true
 						break
@@ -757,7 +764,7 @@ func (a *auth) beginRegistration(ctx app.Context) {
 			credentialID := cred.Get("id").String()
 			a.createUser(ctx, userID, credentialID)
 			ctx.SetState("userID", userID)
-			if len(a.vat) > 0 {
+			if len(a.businessID) > 0 {
 				ctx.SetState("isBusiness", true)
 			}
 			a.beginLogin(ctx, credentialID)

@@ -637,6 +637,10 @@ button {
   cursor: pointer;
 }
 
+#submit-business-id {
+  padding: 0;
+}
+
 .submit-sub {
   font-size: 1.5rem;
   font-weight: bold
@@ -864,7 +868,7 @@ nav {
   width: 50%
 }
 
-#vat-number {
+#business-id {
   margin-bottom: 50px;
 }
 

@@ -15,7 +15,7 @@ type nav struct {
 	termsAccepted bool
 	isBusiness    bool
 	businessName  string
-	vat           string
+	businessID    string
 	entity        string
 	userID        string
 	plan          Plan
@@ -36,8 +36,8 @@ func (n *nav) OnMount(ctx app.Context) {
 
 	ctx.ObserveState("termsAccepted", &n.termsAccepted)
 	ctx.ObserveState("entity", &n.entity)
-	// ctx.ObserveState("businessName", &n.businessName)
-	// ctx.ObserveState("vat", &n.vat)
+	ctx.ObserveState("businessName", &n.businessName)
+	ctx.ObserveState("businessID", &n.businessID)
 	ctx.ObserveState("plan", &n.plan)
 }
 
@@ -88,14 +88,14 @@ func (n *nav) registerBusiness(ctx app.Context, e app.Event) {
 	ctx.SetState("entity", "business")
 }
 
-func (n *nav) submitVAT(ctx app.Context, e app.Event) {
-	validVAT := app.Window().GetElementByID("vat-number").Call("reportValidity").Bool()
+func (n *nav) submitBusinessID(ctx app.Context, e app.Event) {
+	validBusinessID := app.Window().GetElementByID("business-id").Call("reportValidity").Bool()
 	validBusinessName := app.Window().GetElementByID("business-name").Call("reportValidity").Bool()
-	if validVAT && validBusinessName {
+	if validBusinessID && validBusinessName {
 		businessName := app.Window().GetElementByID("business-name").Get("value").String()
 		associateName := app.Window().GetElementByID("associate-name").Get("value").String()
-		vat := app.Window().GetElementByID("vat-number").Get("value").String()
-		ctx.SetState("vat", vat)
+		businessID := app.Window().GetElementByID("business-id").Get("value").String()
+		ctx.SetState("businessID", businessID)
 		ctx.SetState("businessName", businessName)
 		ctx.SetState("associateName", associateName).Persist()
 		app.Window().GetElementByID("main-menu").Call("click")
@@ -218,10 +218,10 @@ func (n *nav) Render() app.UI {
 								app.Input().ID("business-name").Class("input-register").Type("text").Placeholder("Enter business name").MaxLength(22).Required(true),
 								app.Label().Class("menu-label").For("associate-name").Text("Associate Name:"),
 								app.Input().ID("associate-name").Class("input-register").Type("text").Placeholder("Enter associate name").MaxLength(22).Required(true),
-								app.Label().Class("menu-label").For("vat-number").Text("VAT Number:"),
-								app.Input().ID("vat-number").Class("input-register").Type("text").Placeholder("Enter VAT number").Required(true),
+								app.Label().Class("menu-label").For("business-id").Text("Business ID:"),
+								app.Input().ID("business-id").Class("input-register").Type("text").Placeholder("Enter Business ID").Required(true),
 								app.Div().Class("menu-btn").Body(
-									app.Button().ID("submit-vat").Class("submit").Text("Submit VAT").OnClick(n.submitVAT)),
+									app.Button().ID("submit-business-id").Class("submit").Text("Register Business").OnClick(n.submitBusinessID)),
 							)
 						})
 					})
