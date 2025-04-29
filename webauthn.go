@@ -169,8 +169,8 @@ func (a *auth) OnMount(ctx app.Context) {
 
 	// a.findCountry(ctx)
 
-	// a.deleteUsers()
-	// return
+	a.deleteUsers()
+	return
 
 	wconfig := &webauthn.Config{
 		RPDisplayName: "cyber-gubi",                      // Display Name for your site
