@@ -67,6 +67,7 @@ type User struct {
 	CredentialIDs []webauthn.Credential `mapstructure:"credential_ids" json:"credential_ids" validate:"uuid_rfc4122"` // List of credential IDs associated with the user
 	Descriptor    json.RawMessage       `mapstructure:"descriptor" json:"descriptor" validate:"uuid_rfc4122"`         // Face descriptor for the user
 	BusinessID    string                `mapstructure:"business_id" json:"business_id" validate:"uuid_rfc4122"`       // Company business ID
+	GovernmentID  string                `mapstructure:"government_id" json:"government_id" validate:"uuid_rfc4122"`   // Government ID
 	Country       string                `mapstructure:"country" json:"country" validate:"uuid_rfc4122"`
 	Region        string                `mapstructure:"region" json:"region" validate:"uuid_rfc4122"` // Country
 }
@@ -169,8 +170,8 @@ func (a *auth) OnMount(ctx app.Context) {
 
 	// a.findCountry(ctx)
 
-	a.deleteUsers()
-	return
+	// a.deleteUsers()
+	// return
 
 	wconfig := &webauthn.Config{
 		RPDisplayName: "cyber-gubi",                      // Display Name for your site
