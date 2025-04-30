@@ -145,9 +145,6 @@ func (w *wallet) createCountryWallets(ctx app.Context) {
 				}
 			}
 		}
-
-		ctx.Dispatch(func(ctx app.Context) {
-		})
 	})
 }
 

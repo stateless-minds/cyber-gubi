@@ -160,7 +160,7 @@ git clone https://github.com/stateless-minds/kubo.git
   },
  ```
 6. Run the daemon:
-+ `./ipfs/ipfs daemon --enable-pubsub-experiment`
++ `.cmd/ipfs/ipfs daemon --enable-pubsub-experiment`
 
 7.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djkqrrcswqzxsdg3r9fxtzatjac00a2txm7woss7s78s0qihxgr">Cyber Gubi</a>
 8.  Pin it to your local node so that you become a permanent host of it while you have IPFS daemon running
