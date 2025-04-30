@@ -168,8 +168,6 @@ func (a *auth) OnMount(ctx app.Context) {
 	sh := shell.NewShell("localhost:5001")
 	a.sh = sh
 
-	// a.findCountry(ctx)
-
 	// a.deleteUsers()
 	// return
 
@@ -535,6 +533,7 @@ func (a *auth) deleteUsers() {
 }
 
 func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
+	a.findCountry(ctx)
 	ctx.Async(func() {
 		var descriptor []float64
 		err := json.Unmarshal([]byte(a.descriptorJSON), &descriptor)
