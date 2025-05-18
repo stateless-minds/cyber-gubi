@@ -68,10 +68,10 @@ github.com/spaolacci/murmur3 v1.1.0 h1:7c1g84S4BPRrfL5Xrdp6fOJ206sU9y293DDHaoy0b
 github.com/spaolacci/murmur3 v1.1.0/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
 github.com/stateless-minds/boxo v0.24.3 h1:7UU9NDYv8z7EAeH64Pw7TDEqslp2J4io2DJWRZcFeVU=
 github.com/stateless-minds/boxo v0.24.3/go.mod h1:vmyA+qT8lTQByYf63nGOn5d4mwjW9QkNYL9oIc3kGfI=
-github.com/stateless-minds/go-ipfs-api v0.8.8 h1:Emc65NBHr0/3R2HuPsUtsu6c5obUNiRfTREvse9tU4U=
-github.com/stateless-minds/go-ipfs-api v0.8.8/go.mod h1:hwH/Up3TNtuwnAXvcSUilOKCfgJ85+c9faWa0KkKwAA=
-github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
-github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stateless-minds/go-ipfs-api v0.8.14 h1:8oaYG0gsR7XW7I2+Q0umz1Z62vYG6kHw8s3k9zg93Mk=
+github.com/stateless-minds/go-ipfs-api v0.8.14/go.mod h1:hwH/Up3TNtuwnAXvcSUilOKCfgJ85+c9faWa0KkKwAA=
+github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
 github.com/x448/float16 v0.8.4/go.mod h1:14CWIYCyZA/cWjXOioeEpHeN/83MdbZDRQHoFcYsOfg=
 golang.org/x/crypto v0.35.0 h1:b15kiHdrGCHrP6LvwaQ3c03kgNhhiMgvlhxHQhmg2Xs=

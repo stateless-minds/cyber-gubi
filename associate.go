@@ -21,7 +21,6 @@ type associate struct {
 	newAssociateName string
 	associates       []string
 	currentUser      User
-	descriptor       string
 }
 
 func (a *associate) OnMount(ctx app.Context) {
@@ -163,15 +162,15 @@ func (a *associate) Render() app.UI {
 						),
 					),
 				),
-				app.Div().Class("associates").Body(
+				app.Div().Class("list associates").Body(
 					app.Span().Class("a-desc").Text("Manage Associates"),
 					app.If(len(a.associates) == 0, func() app.UI {
-						return app.Div().Class("subscription").Body(
+						return app.Div().Class("list-item").Body(
 							app.Span().Class("empty").Text("No associates yet"),
 						).Style("pointer-events", "none")
 					}),
 					app.Range(a.associates).Slice(func(i int) app.UI {
-						return app.Div().Class("associate").Body(
+						return app.Div().Class("list-item").Body(
 							app.Div().Class("a-details").Body(
 								app.Div().Class("a-title").Body(
 									app.Span().Text(a.associates[i]),

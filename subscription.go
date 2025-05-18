@@ -21,30 +21,89 @@ type subscription struct {
 	sh            *shell.Shell
 	loggedIn      bool
 	userID        string
-	userBalance   UserBalance
+	wallet        Wallet
 	plans         []Plan
 	subscriptions []Subscription
 	subscribed    bool
+	observer      app.Value
+	callback      app.Func
+	lastIndex     int
+	indexStep     int
 }
 
 func (s *subscription) OnMount(ctx app.Context) {
 	sh := shell.NewShell("localhost:5001")
 	s.sh = sh
+	s.indexStep = 99
 
 	ctx.GetState("loggedIn", &s.loggedIn)
 	if !s.loggedIn {
 		ctx.Navigate("/auth")
 	}
 
+	s.callback = app.FuncOf(func(this app.Value, args []app.Value) interface{} {
+		entries := args[0]
+		for i := 0; i < entries.Length(); i++ {
+			entry := entries.Index(i)
+			if entry.Get("isIntersecting").Bool() {
+				// Element is visible - do something
+				s.getPlans(ctx)
+			}
+		}
+		return nil
+	})
+
+	// Select the root element by class name
+	rootElement := app.Window().Get("document").Call("querySelector", ".list")
+
+	options := map[string]interface{}{
+		"root":       rootElement,
+		"rootMargin": "0px",
+		"threshold":  1,
+	}
+
+	observerConstructor := app.Window().Get("IntersectionObserver")
+	s.observer = observerConstructor.New(s.callback, options)
+
 	ctx.GetState("userID", &s.userID)
-	ctx.GetState("balance", &s.userBalance)
+	ctx.GetState("balance", &s.wallet)
 
 	s.getPlans(ctx)
 }
 
+func (s *subscription) OnUpdate(ctx app.Context) {
+	// Wrap your observation logic in a Go function
+	callback := func() {
+		target := app.Window().GetElementByID("last-item")
+		if !target.IsNull() && !target.IsUndefined() {
+			s.observer.Call("disconnect")
+			s.observer.Call("observe", target)
+		}
+	}
+
+	var goFunc app.Func
+
+	// Wrap callback as JS function
+	goFunc = app.FuncOf(func(this app.Value, args []app.Value) interface{} {
+		callback()
+		goFunc.Release() // release after call to avoid leaks
+		return nil
+	})
+
+	// Call JS setTimeout with delay 10ms
+	app.Window().Call("goAppSetTimeout", goFunc, 100)
+}
+
+func (s *subscription) OnDismount(ctx app.Context) {
+	s.observer.Call("disconnect")
+	s.callback.Release()
+}
+
 func (s *subscription) getPlans(ctx app.Context) {
 	ctx.Async(func() {
-		p, err := s.sh.OrbitDocsQuery(dbPlan, "all", "")
+		rangeStart := strconv.Itoa(s.lastIndex)
+		rangeEnd := strconv.Itoa(s.lastIndex + s.indexStep)
+		p, err := s.sh.OrbitDocsQuery(dbPlan, "all", "range="+rangeStart+"-"+rangeEnd)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -56,11 +115,15 @@ func (s *subscription) getPlans(ctx app.Context) {
 			if err != nil {
 				log.Fatal(err)
 			}
+		} else {
+			s.OnDismount(ctx)
 		}
 
 		ctx.Dispatch(func(ctx app.Context) {
-			s.plans = plans
+			s.plans = append(s.plans, plans...)
 			s.deleteExpiredSubscriptions(ctx)
+			s.lastIndex = s.lastIndex + 1 + s.indexStep
+			s.OnUpdate(ctx)
 		})
 	})
 }
@@ -87,40 +150,40 @@ func (s *subscription) getSubscriptions(ctx app.Context) {
 	})
 }
 
-func (s *subscription) getBalance(userID string) (balance UserBalance, err error) {
-	b, err := s.sh.OrbitDocsQuery(dbUserBalance, "_id", userID)
+func (s *subscription) getBalance(userID string) (wallet Wallet, err error) {
+	b, err := s.sh.OrbitDocsQuery(dbWallet, "_id", userID)
 	if err != nil {
-		return UserBalance{}, err
+		return Wallet{}, err
 	}
 
 	if len(b) == 0 {
-		return UserBalance{}, err
+		return Wallet{}, err
 	}
 
-	userBalances := []UserBalance{}
+	wallets := []Wallet{}
 
-	err = json.Unmarshal(b, &userBalances) // Unmarshal the byte slice directly
+	err = json.Unmarshal(b, &wallets) // Unmarshal the byte slice directly
 	if err != nil {
-		return UserBalance{}, err
+		return Wallet{}, err
 	}
 
-	return userBalances[0], nil
+	return wallets[0], nil
 }
 
 func (s *subscription) updateBalance(userID string, balance, income int, date string) error {
-	userBalance := UserBalance{
+	wallet := Wallet{
 		ID:           userID,
 		Balance:      balance,
 		Income:       income,
 		LastReceived: date,
 	}
 
-	userBalanceJSON, err := json.Marshal(userBalance)
+	walletJSON, err := json.Marshal(wallet)
 	if err != nil {
 		return err
 	}
 
-	err = s.sh.OrbitDocsPut(dbUserBalance, userBalanceJSON)
+	err = s.sh.OrbitDocsPut(dbWallet, walletJSON)
 	if err != nil {
 		return err
 	}
@@ -214,7 +277,7 @@ func (s *subscription) doSubscribe(ctx app.Context, e app.Event) {
 	}
 	transaction.TotalCost = plan.Price
 
-	if s.userBalance.Balance-transaction.TotalCost < 0 {
+	if s.wallet.Balance-transaction.TotalCost < 0 {
 		ctx.Notifications().New(app.Notification{
 			Title: "Error",
 			Body:  "Not enough funds.",
@@ -222,7 +285,7 @@ func (s *subscription) doSubscribe(ctx app.Context, e app.Event) {
 		return
 	}
 	// update sender balance
-	err = s.updateBalance(s.userID, s.userBalance.Balance-transaction.TotalCost, s.userBalance.Income, s.userBalance.LastReceived)
+	err = s.updateBalance(s.userID, s.wallet.Balance-transaction.TotalCost, s.wallet.Income, s.wallet.LastReceived)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -235,7 +298,7 @@ func (s *subscription) doSubscribe(ctx app.Context, e app.Event) {
 	err = s.updateBalance(transaction.ReceiverID, receiverBalance.Balance+transaction.TotalCost, receiverBalance.Income, receiverBalance.LastReceived)
 	if err != nil {
 		// rollback sender balance
-		err := s.updateBalance(s.userID, s.userBalance.Balance+transaction.TotalCost, s.userBalance.Income, s.userBalance.LastReceived)
+		err := s.updateBalance(s.userID, s.wallet.Balance+transaction.TotalCost, s.wallet.Income, s.wallet.LastReceived)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -249,7 +312,7 @@ func (s *subscription) doSubscribe(ctx app.Context, e app.Event) {
 	err = s.storeTransaction(transaction)
 	if err != nil {
 		// rollback sender balance
-		err = s.updateBalance(s.userID, s.userBalance.Balance+transaction.TotalCost, s.userBalance.Income, s.userBalance.LastReceived)
+		err = s.updateBalance(s.userID, s.wallet.Balance+transaction.TotalCost, s.wallet.Income, s.wallet.LastReceived)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -265,7 +328,7 @@ func (s *subscription) doSubscribe(ctx app.Context, e app.Event) {
 		return
 	}
 
-	s.userBalance.Balance = s.userBalance.Balance - transaction.TotalCost
+	s.wallet.Balance = s.wallet.Balance - transaction.TotalCost
 	s.subscriptions = append(s.subscriptions, subscription)
 	ctx.Update()
 
@@ -288,7 +351,7 @@ func (s *subscription) Render() app.UI {
 						app.Span().Text("Balance"),
 					),
 					app.Div().Class("summary-balance").Body(
-						app.Span().Text(strconv.Itoa(s.userBalance.Balance/100)+" GUBI"),
+						app.Span().Text(strconv.Itoa(s.wallet.Balance/100)+" GUBI"),
 					),
 				),
 			),
@@ -300,43 +363,75 @@ func (s *subscription) Render() app.UI {
 						),
 					),
 				),
-				app.Div().Class("subscriptions").Body(
+				app.Div().Class("list").Body(
 					app.If(len(s.plans) == 0, func() app.UI {
-						return app.Div().Class("subscription").Body(
+						return app.Div().Class("list-item").Body(
 							app.Span().Class("empty").Text("No plans yet"),
 						).Style("pointer-events", "none")
 					}),
 					app.Range(s.plans).Slice(func(i int) app.UI {
 						s.subscribed = false
-						return app.Div().Class("subscription").Body(
-							app.Div().Class("s-details").Body(
-								app.Div().Class("s-title").Body(
-									app.Span().Text(s.plans[i].Name),
-								),
-								app.Div().Class("s-time").Body(
-									app.If(len(s.subscriptions) > 0, func() app.UI {
-										return app.Range(s.subscriptions).Slice(func(n int) app.UI {
-											return app.If(s.subscriptions[n].PlanID == s.plans[i].ID && s.subscriptions[n].UserID == s.userID, func() app.UI {
-												return app.If(time.Now().Before(s.subscriptions[n].EndDate), func() app.UI {
-													s.subscribed = true
-													return app.Div().Class("menu-btn menu-sub menu-subscribed").Body(
-														app.Button().Class("submit submit-sub").Type("submit").Text("Subscribed").Disabled(true),
-													)
+						return app.If(i == len(s.plans)-1 && len(s.plans)%5 == 0, func() app.UI {
+							return app.Div().ID("last-item").Class("list-item").Body(
+								app.Div().Class("s-details").Body(
+									app.Div().Class("s-title").Body(
+										app.Span().Text(s.plans[i].Name),
+									),
+									app.Div().Class("s-time").Body(
+										app.If(len(s.subscriptions) > 0, func() app.UI {
+											return app.Range(s.subscriptions).Slice(func(n int) app.UI {
+												return app.If(s.subscriptions[n].PlanID == s.plans[i].ID && s.subscriptions[n].UserID == s.userID, func() app.UI {
+													return app.If(time.Now().Before(s.subscriptions[n].EndDate), func() app.UI {
+														s.subscribed = true
+														return app.Div().Class("menu-btn menu-sub menu-subscribed").Body(
+															app.Button().Class("submit submit-sub").Type("submit").Text("Subscribed").Disabled(true),
+														)
+													})
 												})
 											})
-										})
-									}),
-									app.If(!s.subscribed, func() app.UI {
-										return app.Div().Class("menu-btn menu-sub").Body(
-											app.Button().Class("submit submit-sub").Type("submit").Text("Subscribe").Value(i).OnClick(s.doSubscribe),
-										)
-									}),
+										}),
+										app.If(!s.subscribed, func() app.UI {
+											return app.Div().Class("menu-btn menu-sub").Body(
+												app.Button().Class("submit submit-sub").Type("submit").Text("Subscribe").Value(i).OnClick(s.doSubscribe),
+											)
+										}),
+									),
 								),
-							),
-							app.Div().Class("s-price").Body(
-								app.Span().Text(strconv.Itoa(s.plans[i].Price/100)+" GUBI"),
-							),
-						)
+								app.Div().Class("s-price").Body(
+									app.Span().Text(strconv.Itoa(s.plans[i].Price/100)+" GUBI"),
+								),
+							)
+						}).Else(func() app.UI {
+							return app.Div().Class("list-item").Body(
+								app.Div().Class("s-details").Body(
+									app.Div().Class("s-title").Body(
+										app.Span().Text(s.plans[i].Name),
+									),
+									app.Div().Class("s-time").Body(
+										app.If(len(s.subscriptions) > 0, func() app.UI {
+											return app.Range(s.subscriptions).Slice(func(n int) app.UI {
+												return app.If(s.subscriptions[n].PlanID == s.plans[i].ID && s.subscriptions[n].UserID == s.userID, func() app.UI {
+													return app.If(time.Now().Before(s.subscriptions[n].EndDate), func() app.UI {
+														s.subscribed = true
+														return app.Div().Class("menu-btn menu-sub menu-subscribed").Body(
+															app.Button().Class("submit submit-sub").Type("submit").Text("Subscribed").Disabled(true),
+														)
+													})
+												})
+											})
+										}),
+										app.If(!s.subscribed, func() app.UI {
+											return app.Div().Class("menu-btn menu-sub").Body(
+												app.Button().Class("submit submit-sub").Type("submit").Text("Subscribe").Value(i).OnClick(s.doSubscribe),
+											)
+										}),
+									),
+								),
+								app.Div().Class("s-price").Body(
+									app.Span().Text(strconv.Itoa(s.plans[i].Price/100)+" GUBI"),
+								),
+							)
+						})
 					}),
 				),
 			),

@@ -3,22 +3,17 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"sort"
 	"strconv"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
 	shell "github.com/stateless-minds/go-ipfs-api"
 )
 
 const dbIncome = "income"
-const dbUserBalance = "user_balance"
-const dbInflation = "inflation"
-const dbCountryWallet = "country_wallet"
+const dbWallet = "wallet"
 
 // wallet is a component that holds cyber-gubi. A component is a
 // customizable, independent, and reusable UI element. It is created by
@@ -28,15 +23,19 @@ type wallet struct {
 	sh           *shell.Shell
 	loggedIn     bool
 	isBusiness   bool
+	isGovernment bool
 	businessName string
+	countryCode  string
+	countryName  string
 	userID       string
-	userBalance  UserBalance
+	wallet       Wallet
 	income       Income
 	transactions []Transaction
 }
 
-type UserBalance struct {
+type Wallet struct {
 	ID           string `mapstructure:"_id" json:"_id" validate:"uuid_rfc4122"`                     // Unique identifier for the user
+	CountryCode  string `mapstructure:"country_code" json:"country_code" validate:"uuid_rfc4122"`   // Unique identifier for the country
 	Balance      int    `mapstructure:"balance" json:"balance" validate:"uuid_rfc4122"`             // Balance of the user in cents
 	Income       int    `mapstructure:"income" json:"income" validate:"uuid_rfc4122"`               // Recurring income of the user in cents
 	LastReceived string `mapstructure:"last_received" json:"last_received" validate:"uuid_rfc4122"` // Date when basic income was last received
@@ -46,13 +45,6 @@ type Income struct {
 	ID     string `mapstructure:"_id" json:"_id" validate:"uuid_rfc4122"`       // Unique identifier for the income
 	Amount int    `mapstructure:"amount" json:"amount" validate:"uuid_rfc4122"` // Amount of the income in cents
 	Period string `mapstructure:"period" json:"period" validate:"uuid_rfc4122"` // Period the income is valid for
-}
-
-type CountryWallet struct {
-	ID          string  `mapstructure:"_id" json:"_id" validate:"uuid_rfc4122"`                   // Unique identifier for the wallet
-	CountryCode string  `mapstructure:"country_code" json:"country_code" validate:"uuid_rfc4122"` // Unique identifier for the country
-	Amount      int     `mapstructure:"amount" json:"amount" validate:"uuid_rfc4122"`             // Amount of the wallet in cents
-	TaxRate     float64 `mapstructure:"tax_rate" json:"tax_rate" validate:"uuid_rfc4122"`         // Tax rate set up by authorities
 }
 
 func (w *wallet) OnMount(ctx app.Context) {
@@ -70,117 +62,13 @@ func (w *wallet) OnMount(ctx app.Context) {
 
 	ctx.GetState("businessName", &w.businessName)
 
-	// w.updateIncome()
-	// w.deleteIncome()
-	// w.deleteBalances()
-	// w.deleteTransactions()
-	// w.deleteInflation()
-	// w.deletePlans()
-	// w.deleteSubscriptions()
-	// w.createCountryWallets(ctx)
-	// w.getCountryWallets(ctx)
-	// return
+	ctx.GetState("isGovernment", &w.isGovernment)
+
+	ctx.GetState("countryCode", &w.countryCode)
+
+	ctx.GetState("countryName", &w.countryName)
 
 	w.getBalance(ctx)
-}
-
-func (w *wallet) getCountryWallets(ctx app.Context) {
-	ctx.Async(func() {
-		p, err := w.sh.OrbitDocsQuery(dbCountryWallet, "all", "")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		wallets := []CountryWallet{}
-
-		if len(p) != 0 {
-			err = json.Unmarshal(p, &wallets) // Unmarshal the byte slice directly
-			if err != nil {
-				log.Fatal(err)
-			}
-		}
-
-		log.Println(wallets)
-	})
-}
-
-func (w *wallet) createCountryWallets(ctx app.Context) {
-	ctx.Async(func() {
-		r, err := http.Get("https://restcountries.com/v3.1/all?fields=cca2")
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		defer r.Body.Close()
-
-		b, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		var countryCodes []map[string]string
-
-		err = json.Unmarshal(b, &countryCodes)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, country := range countryCodes {
-			for _, code := range country {
-				countryWallet := &CountryWallet{
-					ID:          uuid.NewString(),
-					CountryCode: code,
-					Amount:      0,
-					TaxRate:     0,
-				}
-
-				countryWalletJSON, err := json.Marshal(countryWallet)
-				if err != nil {
-					log.Fatal(err)
-				}
-
-				err = w.sh.OrbitDocsPut(dbCountryWallet, countryWalletJSON)
-				if err != nil {
-					log.Fatal(err)
-				}
-			}
-		}
-	})
-}
-
-func (w *wallet) deleteTransactions() {
-	err := w.sh.OrbitDocsDelete(dbTransaction, "all")
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (w *wallet) deleteInflation() {
-	err := w.sh.OrbitDocsDelete(dbInflation, "all")
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (w *wallet) deleteBalances() {
-	err := w.sh.OrbitDocsDelete(dbUserBalance, "all")
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (w *wallet) deletePlans() {
-	err := w.sh.OrbitDocsDelete(dbPlan, "all")
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (w *wallet) deleteSubscriptions() {
-	err := w.sh.OrbitDocsDelete(dbSubscription, "all")
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func (w *wallet) getTransactions(ctx app.Context) {
@@ -241,18 +129,18 @@ func (w *wallet) getOwnPlan(ctx app.Context) {
 
 func (w *wallet) getBalance(ctx app.Context) {
 	ctx.Async(func() {
-		b, err := w.sh.OrbitDocsQuery(dbUserBalance, "_id", w.userID)
+		b, err := w.sh.OrbitDocsQuery(dbWallet, "_id", w.userID)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		userBalances := []UserBalance{}
+		wallets := []Wallet{}
 
 		if len(b) == 0 {
 			ctx.Dispatch(func(ctx app.Context) {
-				w.userBalance = UserBalance{}
-				ctx.SetState("balance", w.userBalance)
-				if !w.isBusiness {
+				w.wallet = Wallet{}
+				ctx.SetState("balance", w.wallet)
+				if !w.isBusiness && !w.isGovernment {
 					w.getIncome(ctx)
 					return
 				} else {
@@ -261,18 +149,18 @@ func (w *wallet) getBalance(ctx app.Context) {
 			})
 			return
 		} else {
-			err = json.Unmarshal(b, &userBalances) // Unmarshal the byte slice directly
+			err = json.Unmarshal(b, &wallets) // Unmarshal the byte slice directly
 			if err != nil {
 				log.Fatal(err)
 			}
 		}
 
 		ctx.Dispatch(func(ctx app.Context) {
-			w.userBalance = userBalances[0]
-			ctx.SetState("balance", w.userBalance)
+			w.wallet = wallets[0]
+			ctx.SetState("balance", w.wallet)
 
 			// check if recurring income was received for this month
-			if !w.isBusiness && w.userBalance.LastReceived != strconv.Itoa(time.Now().Year())+"/"+strconv.Itoa(int(time.Now().Month())) {
+			if !w.isBusiness && !w.isGovernment && w.wallet.LastReceived != strconv.Itoa(time.Now().Year())+"/"+strconv.Itoa(int(time.Now().Month())) {
 				w.getIncome(ctx)
 			} else {
 				if w.isBusiness {
@@ -287,19 +175,20 @@ func (w *wallet) getBalance(ctx app.Context) {
 
 func (w *wallet) updateBalance(ctx app.Context) {
 	ctx.Async(func() {
-		userBalance := UserBalance{
+		wallet := Wallet{
 			ID:           string(w.userID),
-			Balance:      w.userBalance.Balance,
+			Balance:      w.wallet.Balance,
 			Income:       w.income.Amount,
-			LastReceived: w.userBalance.LastReceived,
+			LastReceived: w.wallet.LastReceived,
+			CountryCode:  w.countryCode,
 		}
 
-		userBalanceJSON, err := json.Marshal(userBalance)
+		walletJSON, err := json.Marshal(wallet)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		err = w.sh.OrbitDocsPut(dbUserBalance, userBalanceJSON)
+		err = w.sh.OrbitDocsPut(dbWallet, walletJSON)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -308,31 +197,6 @@ func (w *wallet) updateBalance(ctx app.Context) {
 			w.getTransactions(ctx)
 		})
 	})
-}
-
-func (w *wallet) updateIncome() {
-	income := &Income{
-		ID:     uuid.NewString(),
-		Amount: 100000,
-		Period: strconv.Itoa(time.Now().Year()) + "/" + strconv.Itoa(int(time.Now().Month())),
-	}
-
-	incomeJSON, err := json.Marshal(income)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	err = w.sh.OrbitDocsPut(dbIncome, incomeJSON)
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func (w *wallet) deleteIncome() {
-	err := w.sh.OrbitDocsDelete(dbIncome, "all")
-	if err != nil {
-		log.Fatal(err)
-	}
 }
 
 func (w *wallet) getIncome(ctx app.Context) {
@@ -362,10 +226,10 @@ func (w *wallet) getIncome(ctx app.Context) {
 
 			// check if there is a matching income year and month to current moment
 			if w.income.Period == strconv.Itoa(time.Now().Year())+"/"+strconv.Itoa(int(time.Now().Month())) {
-				w.userBalance.Balance = (w.userBalance.Balance + w.income.Amount)
-				w.userBalance.Income = w.income.Amount
-				w.userBalance.LastReceived = strconv.Itoa(time.Now().Year()) + "/" + strconv.Itoa(int(time.Now().Month()))
-				ctx.SetState("balance", w.userBalance)
+				w.wallet.Balance = (w.wallet.Balance + w.income.Amount)
+				w.wallet.Income = w.income.Amount
+				w.wallet.LastReceived = strconv.Itoa(time.Now().Year()) + "/" + strconv.Itoa(int(time.Now().Month()))
+				ctx.SetState("balance", w.wallet)
 				w.updateBalance(ctx)
 			} else {
 				w.getTransactions(ctx)
@@ -376,14 +240,6 @@ func (w *wallet) getIncome(ctx app.Context) {
 
 func (w *wallet) goToPayments(ctx app.Context, e app.Event) {
 	ctx.Navigate("payment")
-}
-
-func (w *wallet) showTransactionDetails(ctx app.Context, e app.Event) {
-	ctx.JSSrc().Call("setAttribute", "style", "height: auto")
-}
-
-func (w *wallet) hideTransactionDetails(ctx app.Context, e app.Event) {
-	ctx.JSSrc().Call("setAttribute", "style", "height: 55px")
 }
 
 // The Render method is where the component appearance is defined. Here, a
@@ -399,22 +255,27 @@ func (w *wallet) Render() app.UI {
 						app.Span().Text("Balance"),
 					),
 					app.Div().Class("summary-balance").Body(
-						app.Span().Text(strconv.Itoa(w.userBalance.Balance/100)+" GUBI"),
+						app.Span().Text(strconv.Itoa(w.wallet.Balance/100)+" GUBI"),
 					),
 				),
 			),
 			app.Div().ID("content").Body(
-				app.Div().Class("card").Body(
+				app.Div().Class("card card-wallet").Body(
 					app.Div().Class("upper-row").Body(
-						app.If(!w.isBusiness, func() app.UI {
-							return app.Div().Class("card-item").Body(
-								app.Span().Class("span-header").Text("Monthly Recurring"),
-								app.Span().Text(strconv.Itoa(w.userBalance.Income/100)+" GUBI"),
-							)
-						}).Else(func() app.UI {
+						app.If(w.isBusiness, func() app.UI {
 							return app.Div().Class("card-item").Body(
 								app.Span().Class("span-header").Text("Business Name"),
 								app.Span().Class("span-body").Text(w.businessName),
+							)
+						}).ElseIf(w.isGovernment, func() app.UI {
+							return app.Div().Class("card-item").Body(
+								app.Span().Class("span-header").Text("Country Name"),
+								app.Span().Class("span-body").Text(w.countryName),
+							)
+						}).Else(func() app.UI {
+							return app.Div().Class("card-item").Body(
+								app.Span().Class("span-header").Text("Monthly Recurring"),
+								app.Span().Text(strconv.Itoa(w.wallet.Income/100)+" GUBI"),
 							)
 						}),
 					),
@@ -424,57 +285,6 @@ func (w *wallet) Render() app.UI {
 							app.Span().Class("span-body").Text(w.userID),
 						),
 					),
-				),
-				app.Div().Class("transactions").Body(
-					app.Span().Class("t-desc").Text("Recent Transactions"),
-					app.If(len(w.transactions) == 0, func() app.UI {
-						return app.Div().Class("transaction").Body(
-							app.Span().Class("empty").Text("No transactions yet"),
-						).Style("pointer-events", "none")
-					}),
-					app.Range(w.transactions).Slice(func(i int) app.UI {
-						return app.Div().Class("transaction").Body(
-							app.Div().Class("t-details").Body(
-								app.Div().Class("t-title").Body(
-									app.If(w.transactions[i].SenderID == w.userID, func() app.UI {
-										return app.Span().Text("Purchase ID: " + w.transactions[i].ID)
-									}).Else(func() app.UI {
-										return app.Span().Text("Sale ID: " + w.transactions[i].ID)
-									}),
-								),
-								app.Div().Class("t-time").Body(
-									app.Span().Text(w.transactions[i].Timestamp.Format("2006-01-02 15:04:05")),
-								),
-								app.Div().Class("t-more-details").Body(
-									app.Div().Class("col-1").Body(
-										app.Span().Text("Item"),
-										app.Range(w.transactions[i].ProductsServices).Slice(func(n int) app.UI {
-											return app.Span().Text(w.transactions[i].ProductsServices[n].Name)
-										}),
-									),
-									app.Div().Class("col-2").Body(
-										app.Span().Text("Amount"),
-										app.Range(w.transactions[i].ProductsServices).Slice(func(n int) app.UI {
-											return app.Span().Text(w.transactions[i].ProductsServices[n].Amount)
-										}),
-									),
-									app.Div().Class("col-3").Body(
-										app.Span().Text("Price"),
-										app.Range(w.transactions[i].ProductsServices).Slice(func(n int) app.UI {
-											return app.Span().Text(w.transactions[i].ProductsServices[n].Price / 100)
-										}),
-									),
-								),
-							).OnMouseOver(w.showTransactionDetails).OnMouseLeave(w.hideTransactionDetails),
-							app.Div().Class("t-price").Body(
-								app.If(w.transactions[i].SenderID == w.userID, func() app.UI {
-									return app.Span().Text("-" + strconv.Itoa(w.transactions[i].TotalCost/100) + " GUBI")
-								}).Else(func() app.UI {
-									return app.Span().Text("+" + strconv.Itoa(w.transactions[i].TotalCost/100) + " GUBI")
-								}),
-							),
-						)
-					}),
 				),
 				app.Div().Class("menu-btn").Body(
 					app.Button().Class("submit").Type("submit").Text("Make a payment").OnClick(w.goToPayments),

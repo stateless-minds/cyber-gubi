@@ -20,12 +20,9 @@ type payment struct {
 	app.Compo
 	sh            *shell.Shell
 	loggedIn      bool
-	isBusiness    bool
 	userID        string
-	userBalance   UserBalance
-	country       string
-	region        string
-	userBalances  []UserBalance
+	wallet        Wallet
+	wallets       []Wallet
 	productsIndex []int
 	servicesIndex []int
 	products      []ProductService
@@ -60,19 +57,6 @@ type ProductService struct {
 	Amount int    `mapstructure:"amount" json:"amount" validate:"uuid_rfc4122"`
 }
 
-// Struct for individual state data
-type State struct {
-	Rate float64 `json:"rate"`
-	Type string  `json:"type"`
-}
-
-// Struct for country data, including nested states
-type Country struct {
-	Type   string           `json:"type"`
-	Rate   float64          `json:"rate"`
-	States map[string]State `json:"states,omitempty"` // Use a map for dynamic state keys
-}
-
 func (p *payment) OnMount(ctx app.Context) {
 	sh := shell.NewShell("localhost:5001")
 	p.sh = sh
@@ -91,68 +75,43 @@ func (p *payment) OnMount(ctx app.Context) {
 	}
 
 	ctx.GetState("userID", &p.userID)
-	ctx.GetState("balance", &p.userBalance)
-	ctx.GetState("country: ", &p.country)
-	ctx.GetState("region: ", &p.region)
-	ctx.GetState("isBusiness: ", &p.isBusiness)
-
-	log.Println("p.isBusiness", p.isBusiness)
+	ctx.GetState("balance", &p.wallet)
 
 	p.getBalances(ctx)
 }
 
-func (p *payment) getBalance(userID string) (balance UserBalance, err error) {
-	b, err := p.sh.OrbitDocsQuery(dbUserBalance, "_id", userID)
+func (p *payment) getBalance(userID string) (balance Wallet, err error) {
+	b, err := p.sh.OrbitDocsQuery(dbWallet, "_id", userID)
 	if err != nil {
-		return UserBalance{}, err
+		return Wallet{}, err
 	}
 
 	if len(b) == 0 {
-		return UserBalance{}, err
+		return Wallet{}, err
 	}
 
-	userBalances := []UserBalance{}
+	wallets := []Wallet{}
 
-	err = json.Unmarshal(b, &userBalances) // Unmarshal the byte slice directly
+	err = json.Unmarshal(b, &wallets) // Unmarshal the byte slice directly
 	if err != nil {
-		return UserBalance{}, err
+		return Wallet{}, err
 	}
 
-	return userBalances[0], nil
+	return wallets[0], nil
 }
 
-func (p *payment) getUser(userID string) (user User, err error) {
-	b, err := p.sh.OrbitDocsQuery(dbUser, "_id", userID)
-	if err != nil {
-		return User{}, err
-	}
-
-	if len(b) == 0 {
-		return User{}, err
-	}
-
-	u := []User{}
-
-	err = json.Unmarshal(b, &u) // Unmarshal the byte slice directly
-	if err != nil {
-		return User{}, err
-	}
-
-	return u[0], nil
-}
-
-func removeSelfFromUserResults(userBalances []UserBalance, userID string) []UserBalance {
-	for i, ub := range userBalances {
+func removeSelfFromUserResults(wallets []Wallet, userID string) []Wallet {
+	for i, ub := range wallets {
 		if ub.ID == userID {
-			return append(userBalances[:i], userBalances[i+1:]...)
+			return append(wallets[:i], wallets[i+1:]...)
 		}
 	}
-	return userBalances
+	return wallets
 }
 
 func (p *payment) getBalances(ctx app.Context) {
 	ctx.Async(func() {
-		b, err := p.sh.OrbitDocsQuery(dbUserBalance, "all", "")
+		b, err := p.sh.OrbitDocsQuery(dbWallet, "all", "")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -161,36 +120,36 @@ func (p *payment) getBalances(ctx app.Context) {
 			log.Fatal(err)
 		}
 
-		userBalances := []UserBalance{}
+		wallets := []Wallet{}
 
-		err = json.Unmarshal(b, &userBalances) // Unmarshal the byte slice directly
+		err = json.Unmarshal(b, &wallets) // Unmarshal the byte slice directly
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		userBalances = removeSelfFromUserResults(userBalances, p.userID)
+		wallets = removeSelfFromUserResults(wallets, p.userID)
 
 		ctx.Dispatch(func(ctx app.Context) {
-			p.userBalances = userBalances
+			p.wallets = wallets
 		})
 
 	})
 }
 
 func (p *payment) updateBalance(userID string, balance, income int, date string) error {
-	userBalance := UserBalance{
+	wallet := Wallet{
 		ID:           userID,
 		Balance:      balance,
 		Income:       income,
 		LastReceived: date,
 	}
 
-	userBalanceJSON, err := json.Marshal(userBalance)
+	walletJSON, err := json.Marshal(wallet)
 	if err != nil {
 		return err
 	}
 
-	err = p.sh.OrbitDocsPut(dbUserBalance, userBalanceJSON)
+	err = p.sh.OrbitDocsPut(dbWallet, walletJSON)
 	if err != nil {
 		return err
 	}
@@ -305,7 +264,7 @@ func (p *payment) doPayment(ctx app.Context, e app.Event) {
 
 		transaction.TotalCost = totalCost
 
-		if p.userBalance.Balance-totalCost < 0 {
+		if p.wallet.Balance-totalCost < 0 {
 			ctx.Notifications().New(app.Notification{
 				Title: "Error",
 				Body:  "Not enough funds.",
@@ -313,7 +272,7 @@ func (p *payment) doPayment(ctx app.Context, e app.Event) {
 			return
 		}
 		// update sender balance
-		err := p.updateBalance(p.userID, p.userBalance.Balance-totalCost, p.userBalance.Income, p.userBalance.LastReceived)
+		err := p.updateBalance(p.userID, p.wallet.Balance-totalCost, p.wallet.Income, p.wallet.LastReceived)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -326,7 +285,7 @@ func (p *payment) doPayment(ctx app.Context, e app.Event) {
 		err = p.updateBalance(transaction.ReceiverID, receiverBalance.Balance+totalCost, receiverBalance.Income, receiverBalance.LastReceived)
 		if err != nil {
 			// rollback sender balance
-			err := p.updateBalance(p.userID, p.userBalance.Balance+totalCost, p.userBalance.Income, p.userBalance.LastReceived)
+			err := p.updateBalance(p.userID, p.wallet.Balance+totalCost, p.wallet.Income, p.wallet.LastReceived)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -336,7 +295,7 @@ func (p *payment) doPayment(ctx app.Context, e app.Event) {
 		err = p.storeTransaction(transaction)
 		if err != nil {
 			// rollback sender balance
-			err = p.updateBalance(p.userID, p.userBalance.Balance+totalCost, p.userBalance.Income, p.userBalance.LastReceived)
+			err = p.updateBalance(p.userID, p.wallet.Balance+totalCost, p.wallet.Income, p.wallet.LastReceived)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -348,7 +307,7 @@ func (p *payment) doPayment(ctx app.Context, e app.Event) {
 			return
 		}
 
-		p.userBalance.Balance = p.userBalance.Balance - totalCost
+		p.wallet.Balance = p.wallet.Balance - totalCost
 		ctx.Update()
 
 		ctx.Notifications().New(app.Notification{
@@ -371,7 +330,7 @@ func (p *payment) Render() app.UI {
 						app.Span().Text("Balance"),
 					),
 					app.Div().Class("summary-balance").Body(
-						app.Span().Text(strconv.Itoa(p.userBalance.Balance/100)+" GUBI"),
+						app.Span().Text(strconv.Itoa(p.wallet.Balance/100)+" GUBI"),
 					),
 				),
 			),
@@ -383,8 +342,8 @@ func (p *payment) Render() app.UI {
 							app.Form().ID("pay-form").Body(
 								app.Label().For("receiver-id").Text("Receiver ID:"),
 								app.Select().ID("receiver-id").Name("receiver-id").Body(
-									app.Range(p.userBalances).Slice(func(i int) app.UI {
-										return app.Option().Value(p.userBalances[i].ID).Text(p.userBalances[i].ID)
+									app.Range(p.wallets).Slice(func(i int) app.UI {
+										return app.Option().Value(p.wallets[i].ID).Text(p.wallets[i].ID)
 									}),
 								),
 								// Tab Navigation

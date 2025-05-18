@@ -14,6 +14,7 @@ type nav struct {
 	loggedIn      bool
 	termsAccepted bool
 	isBusiness    bool
+	isGovernment  bool
 	businessName  string
 	businessID    string
 	entity        string
@@ -30,6 +31,7 @@ func (n *nav) OnMount(ctx app.Context) {
 	if n.loggedIn {
 		ctx.GetState("userID", &n.userID)
 		ctx.GetState("isBusiness", &n.isBusiness)
+		ctx.GetState("isGovernment", &n.isGovernment)
 		sh := shell.NewShell("localhost:5001")
 		n.sh = sh
 	}
@@ -111,7 +113,7 @@ func (n *nav) deleteUser() {
 }
 
 func (n *nav) deleteBalance() {
-	err := n.sh.OrbitDocsDelete(dbUserBalance, n.userID)
+	err := n.sh.OrbitDocsDelete(dbWallet, n.userID)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -226,37 +228,7 @@ func (n *nav) Render() app.UI {
 						})
 					})
 				}).Else(func() app.UI {
-					return app.If(!n.isBusiness, func() app.UI {
-						return app.Div().Class("menu-items").Body(
-							app.Div().Class("header-summary").Body(
-								app.Span().Class("logo").Text("cyber-gubi"),
-								app.Div().Class("summary-text").Body(
-									app.Span().Text("Individual"),
-								),
-							),
-							app.Li().Body(
-								app.A().Href("/wallet").Text("Wallet"),
-							),
-							app.Li().Body(
-								app.A().Href("/payment").Text("Payment"),
-							),
-							app.Li().Body(
-								app.A().Href("/subscriptions").Text("Subscriptions"),
-							),
-							app.Li().Body(
-								app.A().Href("/terms").Text("Terms of Use"),
-							),
-							app.Li().Body(
-								app.A().Href("/privacy").Text("Privacy"),
-							),
-							app.Li().Body(
-								app.A().Href("/cookie").Text("Cookie"),
-							),
-							app.Li().Body(
-								app.A().Text("Delete Account").OnClick(n.deleteAccount),
-							),
-						)
-					}).Else(func() app.UI {
+					return app.If(n.isBusiness, func() app.UI {
 						return app.Div().Class("menu-items").Body(
 							app.Div().Class("header-summary").Body(
 								app.Span().Class("logo").Text("cyber-gubi"),
@@ -265,10 +237,16 @@ func (n *nav) Render() app.UI {
 								),
 							),
 							app.Li().Body(
+								app.A().Href("/associates").Text("Associates"),
+							),
+							app.Li().Body(
 								app.A().Href("/wallet").Text("Wallet"),
 							),
 							app.Li().Body(
 								app.A().Href("/payment").Text("Payment"),
+							),
+							app.Li().Body(
+								app.A().Href("/transactions").Text("Transactions"),
 							),
 							app.If(n.plan == Plan{}, func() app.UI {
 								return app.Li().Body(
@@ -279,9 +257,6 @@ func (n *nav) Render() app.UI {
 									app.A().Href("/plan").Text("Edit Plan"),
 								)
 							}),
-							app.Li().Body(
-								app.A().Href("/associates").Text("Associates"),
-							),
 							app.Li().Body(
 								app.A().Href("/clients").Text("Clients"),
 							),
@@ -296,6 +271,75 @@ func (n *nav) Render() app.UI {
 							),
 							app.Li().Body(
 								app.A().Href("/cookie-business").Text("Cookie"),
+							),
+							app.Li().Body(
+								app.A().Text("Delete Account").OnClick(n.deleteAccount),
+							),
+						)
+					}).ElseIf(n.isGovernment, func() app.UI {
+						return app.Div().Class("menu-items").Body(
+							app.Div().Class("header-summary").Body(
+								app.Span().Class("logo").Text("cyber-gubi"),
+								app.Div().Class("summary-text").Body(
+									app.Span().Text("Government"),
+								),
+							),
+							app.Li().Body(
+								app.A().Href("/associates").Text("Associates"),
+							),
+							app.Li().Body(
+								app.A().Href("/wallet").Text("Treasury"),
+							),
+							app.Li().Body(
+								app.A().Href("/payment").Text("Payment"),
+							),
+							app.Li().Body(
+								app.A().Href("/transactions").Text("Transactions"),
+							),
+							app.Li().Body(
+								app.A().Href("/wallets").Text("Collect Tax"),
+							),
+							app.Li().Body(
+								app.A().Href("/terms-government").Text("Terms of Use"),
+							),
+							app.Li().Body(
+								app.A().Href("/privacy-government").Text("Privacy"),
+							),
+							app.Li().Body(
+								app.A().Href("/cookie-government").Text("Cookie"),
+							),
+							app.Li().Body(
+								app.A().Text("Delete Account").OnClick(n.deleteAccount),
+							),
+						)
+					}).Else(func() app.UI {
+						return app.Div().Class("menu-items").Body(
+							app.Div().Class("header-summary").Body(
+								app.Span().Class("logo").Text("cyber-gubi"),
+								app.Div().Class("summary-text").Body(
+									app.Span().Text("Individual"),
+								),
+							),
+							app.Li().Body(
+								app.A().Href("/wallet").Text("Wallet"),
+							),
+							app.Li().Body(
+								app.A().Href("/payment").Text("Payment"),
+							),
+							app.Li().Body(
+								app.A().Href("/transactions").Text("Transactions"),
+							),
+							app.Li().Body(
+								app.A().Href("/subscriptions").Text("Subscriptions"),
+							),
+							app.Li().Body(
+								app.A().Href("/terms").Text("Terms of Use"),
+							),
+							app.Li().Body(
+								app.A().Href("/privacy").Text("Privacy"),
+							),
+							app.Li().Body(
+								app.A().Href("/cookie").Text("Cookie"),
 							),
 							app.Li().Body(
 								app.A().Text("Delete Account").OnClick(n.deleteAccount),

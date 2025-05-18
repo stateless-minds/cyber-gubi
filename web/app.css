@@ -125,6 +125,10 @@ font-family: 'Montserrat', sans-serif;
    box-shadow: 0 14px 28px rgba(0,0,0,0.02), 0 10px 10px rgba(0,0,0,0.0);
 }
 
+.card-wallet {
+  margin-bottom: 50px;
+}
+
 video {
   border-radius: 20px;
 }
@@ -261,11 +265,11 @@ iframe {
   margin: 2rem 0;
   padding-top: 10px;
   flex-direction: column;
-  max-height: 225px;
+  max-height: 350px;
   overflow-y: auto;
 }
 
-.subscriptions {
+.list {
   font-family: 'Montserrat', sans-serif;
   display: flex;
   position: relative;
@@ -277,18 +281,7 @@ iframe {
 }
 
 .associates {
-  font-family: 'Montserrat', sans-serif;
-  display: flex;
-  position: relative;
-  margin: 2rem 0;
-  padding-top: 10px;
-  flex-direction: column;
   height: 290px;
-  overflow-y: auto;
-}
-
-.c-sub {
-  height: 300px!important;
 }
 
 .t-desc, .s-desc, .a-desc {
@@ -313,7 +306,7 @@ iframe {
   color: darkblue;
 }
 
-.subscription {
+.list-item {
   padding: 10px 20px;
   display: flex;
   justify-content: space-between;
@@ -393,6 +386,12 @@ iframe {
   font-weight: bold;
 }
 
+.w-title {
+  padding-left: 20px;
+  font-weight: bold;
+  font-size: 0.7rem;
+}
+
 .c-title {
   font-size: 0.8rem;
   padding-bottom: 5px;
@@ -414,6 +413,10 @@ iframe {
   font-size: 0.6rem;
   font-weight: 300;
   letter-spacing: 1px;
+}
+
+.s-time span {
+  padding-right: 10px;
 }
 
 .t-amount {
@@ -500,6 +503,13 @@ iframe {
   scale: 0.6;
   position: relative;
   left: -30px;
+}
+
+.menu-list {
+  scale: 0.6;
+  position: relative;
+  float: left;
+  width: 130px!important;
 }
 
 .menu-assoc {
@@ -591,6 +601,12 @@ input {
     padding-right: 20px;
   }
 
+  .tax-label {
+    float: left;
+    width: 100%;
+    padding: 0!important;
+  }
+
   select {
     padding: 10px;
     border: 1px solid lightseagreen;
@@ -644,6 +660,13 @@ button {
 .submit-sub {
   font-size: 1.5rem;
   font-weight: bold
+}
+
+.submit-list {
+  font-size: 1rem;
+  font-weight: bold;
+  text-decoration: none;
+  text-align: center;
 }
 
 .submit-sub:disabled {

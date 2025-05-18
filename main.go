@@ -29,6 +29,10 @@ func main() {
 	app.Route("/", func() app.Composer { return &home{} })
 	app.Route("/auth", func() app.Composer { return &auth{} })
 	app.Route("/wallet", func() app.Composer { return &wallet{} })
+	app.Route("/wallets", func() app.Composer { return &wallets{} })
+	app.Route("/transactions", func() app.Composer { return &transactions{} })
+	app.RouteWithRegexp("/transactions/(?P<uuid>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", func() app.Composer { return &transactions{} })
+	app.RouteWithRegexp("/tax/(?P<uuid>[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})", func() app.Composer { return &tax{} })
 	app.Route("/payment", func() app.Composer { return &payment{} })
 	app.Route("/subscriptions", func() app.Composer { return &subscription{} })
 	// business only
@@ -67,6 +71,7 @@ func main() {
 		},
 		Scripts: []string{
 			"web/script.js",
+			"web/helpers.js",
 		},
 		RawHeaders: []string{
 			`
@@ -82,6 +87,7 @@ func main() {
 		},
 		Scripts: []string{
 			"web/script.js",
+			"web/helpers.js",
 		},
 		RawHeaders: []string{
 			`
@@ -90,6 +96,36 @@ func main() {
 	})
 
 	http.Handle("/wallet", &app.Handler{
+		Name:        "Cyber GUBI",
+		Description: "An unconditional universal basic income",
+		Styles: []string{
+			"/web/app.css", // Loads app.css file.
+		},
+	})
+
+	http.Handle("/wallets", &app.Handler{
+		Name:        "Cyber GUBI",
+		Description: "An unconditional universal basic income",
+		Styles: []string{
+			"/web/app.css", // Loads app.css file.
+		},
+		Scripts: []string{
+			"web/helpers.js",
+		},
+	})
+
+	http.Handle("/transactions", &app.Handler{
+		Name:        "Cyber GUBI",
+		Description: "An unconditional universal basic income",
+		Styles: []string{
+			"/web/app.css", // Loads app.css file.
+		},
+		Scripts: []string{
+			"web/helpers.js",
+		},
+	})
+
+	http.Handle("/tax", &app.Handler{
 		Name:        "Cyber GUBI",
 		Description: "An unconditional universal basic income",
 		Styles: []string{

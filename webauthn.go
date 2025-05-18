@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
-	mathRand "math/rand"
 	"net"
 	"net/http"
 	"strconv"
@@ -24,6 +23,7 @@ import (
 )
 
 const dbUser = "user"
+const dbInflation = "inflation"
 
 // auth is a component that uses webauthn and biometrics. A component is a
 // customizable, independent, and reusable UI element. It is created by
@@ -33,8 +33,10 @@ type auth struct {
 	sh                     *shell.Shell
 	webAuthn               *webauthn.WebAuthn
 	descriptorJSON         string
+	userID                 string
+	credentialID           string
 	currentUser            User
-	country                string
+	countryCode            string
 	region                 string
 	entity                 string
 	termsAccepted          bool
@@ -43,6 +45,7 @@ type auth struct {
 	associateName          string
 	newAssociateName       string
 	businessID             string
+	isCountry              bool
 }
 
 // Credential represents the structure for credential information.
@@ -68,7 +71,7 @@ type User struct {
 	Descriptor    json.RawMessage       `mapstructure:"descriptor" json:"descriptor" validate:"uuid_rfc4122"`         // Face descriptor for the user
 	BusinessID    string                `mapstructure:"business_id" json:"business_id" validate:"uuid_rfc4122"`       // Company business ID
 	GovernmentID  string                `mapstructure:"government_id" json:"government_id" validate:"uuid_rfc4122"`   // Government ID
-	Country       string                `mapstructure:"country" json:"country" validate:"uuid_rfc4122"`
+	CountryCode   string                `mapstructure:"country_code" json:"country_code" validate:"uuid_rfc4122"`
 	Region        string                `mapstructure:"region" json:"region" validate:"uuid_rfc4122"` // Country
 }
 
@@ -168,9 +171,6 @@ func (a *auth) OnMount(ctx app.Context) {
 	sh := shell.NewShell("localhost:5001")
 	a.sh = sh
 
-	// a.deleteUsers()
-	// return
-
 	wconfig := &webauthn.Config{
 		RPDisplayName: "cyber-gubi",                      // Display Name for your site
 		RPID:          "localhost",                       // Generally the FQDN for your site
@@ -187,13 +187,52 @@ func (a *auth) OnMount(ctx app.Context) {
 		log.Fatal(err)
 	}
 
-	a.fetchDescriptor(ctx)
+	ctx.Async(func() {
+		a.fetchDescriptor()
+		ctx.Dispatch(func(ctx app.Context) {
+			days := daysRemainingInMonth(time.Now())
+			if days <= 3 {
+				a.getIncome(ctx)
+			}
+		})
+	})
+
+	// a.isCountry = true
+	// a.beginRegistration(ctx)
+
+	// a.getUsers()
+	// a.deleteUsers()
+	// a.getCountryWallets()
+	// a.deleteWallets()
+
+	// err = a.sh.CreateCountryAccounts()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// err = a.sh.UpdateCountryAccount("Bulgaria", "123456789", "[-0.0627824,0.0557961,0.0648634,0.0306014,-0.1085096,-0.0788037,0.075048,-0.1441734,0.1718586,-0.0523681,0.2802132,-0.0567889,-0.1854445,-0.0597611,0.0114786,0.0480673,-0.0496276,-0.1171764,-0.0804037,-0.0205053,0.0530239,0.0250173,0.0605471,0.0514089,-0.1221177,-0.3250661,-0.0808559,-0.0847882,0.0657298,-0.0954366,0.0462636,0.1540155,-0.1214376,-0.1278621,0.0442731,0.0386029,-0.0235876,-0.0453274,0.2145044,-0.0412263,-0.1723431,0.030252,-0.0042006,0.3438928,0.166643,-0.0065849,0.067531,-0.1344344,0.072491,-0.2080505,0.1440588,0.0992688,0.0965577,0.0192163,0.1379771,-0.1077227,0.0233076,0.0733253,-0.2029213,0.1296015,0.1562316,-0.0187693,0.0118775,-0.0894548,0.1507326,0.0448835,-0.065876,-0.0924555,0.0696441,-0.1390269,-0.0671479,0.1045424,-0.1480977,-0.2013738,-0.2597257,0.060221,0.4447426,0.157009,-0.2232685,0.0326051,-0.0309981,0.007613,0.1382988,0.0460388,-0.0278781,-0.0480645,-0.1229947,0.0531989,0.1622549,0.0077055,-0.1267886,0.2304303,-0.0159248,-0.0801122,0.0890828,0.0514886,-0.0796351,0.0404276,-0.1380173,-0.0350928,0.0846586,-0.0621224,0.0212492,0.0748239,-0.1815445,0.1994248,-0.0428519,0.0419655,0.037446,-0.0585382,-0.108566,0.0453554,0.1541657,-0.2565612,0.1867651,0.0518779,0.0431454,0.1520243,0.0069921,0.0518195,0.010262,0.0022844,-0.0952344,-0.0429271,0.0531778,0.0003472,0.1194178,0.0360485]")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// err = a.sh.CreateCountryWallets()
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// w.deleteIncome()
+	// w.deleteTransactions()
+	// w.deleteInflation()
+	// w.deletePlans()
+	// w.deleteSubscriptions()
+	// return
 
 	ctx.ObserveState("entity", &a.entity)
 
 	ctx.ObserveState("termsAccepted", &a.termsAccepted).
 		OnChange(func() {
 			if a.entity == "individual" {
+				a.findCountry(ctx)
 				a.beginRegistration(ctx)
 			}
 		})
@@ -204,12 +243,63 @@ func (a *auth) OnMount(ctx app.Context) {
 			if a.entity == "business" && a.termsAccepted {
 				ctx.GetState("businessName", &a.businessName)
 				ctx.GetState("associateName", &a.associateName)
-				duplicatesFound := a.checkForDuplicates(ctx)
-				if !duplicatesFound {
+
+				a.findCountry(ctx)
+				duplicateFound := a.isDuplicate(ctx)
+				if !duplicateFound {
 					a.beginRegistration(ctx)
 				}
 			}
 		})
+}
+
+func (w *wallet) deleteIncome() {
+	err := w.sh.OrbitDocsDelete(dbIncome, "all")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (w *wallet) deleteTransactions() {
+	err := w.sh.OrbitDocsDelete(dbTransaction, "all")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (w *wallet) deleteInflation() {
+	err := w.sh.OrbitDocsDelete(dbInflation, "all")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (w *wallet) deletePlans() {
+	err := w.sh.OrbitDocsDelete(dbPlan, "all")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (w *wallet) deleteSubscriptions() {
+	err := w.sh.OrbitDocsDelete(dbSubscription, "all")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (a *auth) getCountryWallets() {
+	_, err := a.sh.OrbitDocsQuery(dbWallet, "all", "")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (a *auth) getUsers() {
+	_, err := a.sh.OrbitDocsQuery(dbUser, "all", "")
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func (a *auth) findCountry(ctx app.Context) {
@@ -250,8 +340,8 @@ func (a *auth) findCountry(ctx app.Context) {
 
 				// Storing HTTP response in component field:
 				ctx.Dispatch(func(ctx app.Context) {
-					a.country = info["countryCode"].(string)
-					ctx.SetState("country: ", a.country)
+					a.countryCode = info["countryCode"].(string)
+					ctx.SetState("countryCode: ", a.countryCode)
 
 					a.region = info["region"].(string)
 					ctx.SetState("region: ", a.region)
@@ -410,6 +500,8 @@ func (a *auth) doCheck(ctx app.Context, e app.Event) {
 				log.Fatal(err)
 			}
 
+			ctx.SetState("countryCode", u.CountryCode)
+
 			currentUser := u
 			var descriptorFloat []float64
 			descriptorLSH := make(map[int][]string)
@@ -440,7 +532,7 @@ func (a *auth) doCheck(ctx app.Context, e app.Event) {
 			log.Println(descriptorLSH)
 
 			ctx.SetState("userID", string(currentUser.ID))
-			if len(currentUser.BusinessID) > 0 {
+			if len(currentUser.BusinessID) > 0 || len(currentUser.GovernmentID) > 0 {
 				ctx.SetState("currentUser", currentUser).Persist()
 
 				var descriptorHash map[string]map[int][]string
@@ -466,31 +558,42 @@ func (a *auth) doCheck(ctx app.Context, e app.Event) {
 
 				log.Println("matches: ", matches)
 
-				var maxKey string
-				var maxValue int
-				first := true
+				if len(matches) > 0 {
+					var maxKey string
+					var maxValue int
+					first := true
 
-				for k, v := range matches {
-					if v == maxValue {
-						ctx.Notifications().New(app.Notification{
-							Title: "Error",
-							Body:  "Face not recognized. Trying again.",
-						})
-						ctx.Reload()
+					for k, v := range matches {
+						if v == maxValue {
+							ctx.Notifications().New(app.Notification{
+								Title: "Error",
+								Body:  "Face not recognized. Trying again.",
+							})
+							ctx.Reload()
+						}
+						if first || v > maxValue {
+							maxValue = v
+							maxKey = k
+							first = false
+						}
 					}
-					if first || v > maxValue {
-						maxValue = v
-						maxKey = k
-						first = false
+
+					ctx.SetState("associateName", maxKey).Persist()
+
+					if len(currentUser.BusinessID) > 0 {
+						ctx.SetState("isBusiness", true)
+						ctx.SetState("businessName", currentUser.DisplayName)
+					} else {
+						ctx.SetState("isGovernment", true)
+						ctx.SetState("countryName", currentUser.DisplayName)
 					}
+					a.credentialID = string(currentUser.CredentialIDs[0].ID)
+				} else {
+					ctx.Reload()
 				}
-
-				ctx.SetState("associateName", maxKey).Persist()
-				ctx.SetState("businessName", currentUser.DisplayName)
-				ctx.SetState("isBusiness", true)
 			}
 
-			a.beginLogin(ctx, string(currentUser.CredentialIDs[0].ID))
+			a.beginLogin(ctx)
 		}
 	}
 }
@@ -514,15 +617,11 @@ func daysRemainingInMonth(date time.Time) int {
 	return days
 }
 
-func (a *auth) fetchDescriptor(ctx app.Context) {
+func (a *auth) fetchDescriptor() {
 	// Send response event to child
 	app.Window().Get("parent").Get("window").Call("dispatchEvent", // Target the iframe's window
 		app.Window().Get("CustomEvent").New("fetchDescriptor"),
 	)
-	days := daysRemainingInMonth(time.Now())
-	if days <= 3 {
-		a.getIncome(ctx)
-	}
 }
 
 func (a *auth) deleteUsers() {
@@ -532,8 +631,14 @@ func (a *auth) deleteUsers() {
 	}
 }
 
-func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
-	a.findCountry(ctx)
+func (a *auth) deleteWallets() {
+	err := a.sh.OrbitDocsDelete(dbWallet, "all")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (a *auth) createUser(ctx app.Context) {
 	ctx.Async(func() {
 		var descriptor []float64
 		err := json.Unmarshal([]byte(a.descriptorJSON), &descriptor)
@@ -557,16 +662,16 @@ func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 		user := User{
 			Name:        a.businessName,
 			DisplayName: a.businessName,
-			ID:          protocol.URLEncodedBase64(userID),
+			ID:          protocol.URLEncodedBase64(a.userID),
 			CredentialIDs: []webauthn.Credential{
 				{
-					ID: []byte(credentialID),
+					ID: []byte(a.credentialID),
 				},
 			},
-			Descriptor: dm,
-			BusinessID: a.businessID,
-			Country:    a.country,
-			Region:     a.region,
+			Descriptor:  dm,
+			BusinessID:  a.businessID,
+			CountryCode: a.countryCode,
+			Region:      a.region,
 		}
 
 		userJSON, err := json.Marshal(user)
@@ -576,7 +681,19 @@ func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 
 		err = a.sh.OrbitDocsPut(dbUser, userJSON)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err.Error())
+			if err.Error() == "orbit/docsput: duplicate found" {
+				ctx.Notifications().New(app.Notification{
+					Title: "Registration error",
+					Body:  "Duplicate foun. Try a different name.",
+				})
+			} else {
+				ctx.Notifications().New(app.Notification{
+					Title: "Registration error",
+					Body:  "Oops something unexpected happened. Try again or open an issue here: https://github.com/stateless-minds/cyber-gubi/issues",
+				})
+			}
+			return
 		}
 
 		ctx.Dispatch(func(ctx app.Context) {
@@ -585,6 +702,7 @@ func (a *auth) createUser(ctx app.Context, userID, credentialID string) {
 				ctx.SetState("currentUser", a.currentUser).Persist()
 				ctx.SetState("isBusiness", true)
 			}
+			a.beginLogin(ctx)
 		})
 	})
 }
@@ -636,7 +754,7 @@ func (a *auth) updateUser(ctx app.Context) {
 	})
 }
 
-func (a *auth) checkForDuplicates(ctx app.Context) bool {
+func (a *auth) isDuplicate(ctx app.Context) bool {
 	res, err := a.sh.OrbitDocsQuery(dbUser, "all", "")
 	if err != nil {
 		log.Fatal(err)
@@ -651,35 +769,43 @@ func (a *auth) checkForDuplicates(ctx app.Context) bool {
 		}
 	}
 
-	duplicates := false
+	duplicateName := false
+	duplicateBusinessID := false
+	sameCountry := false
 
 	if len(users) > 0 {
 		for _, usrs := range users {
 			for k, v := range usrs {
 				if k == "name" || k == "display_name" {
 					if v == a.businessName {
-						ctx.Notifications().New(app.Notification{
-							Title: "Registration error",
-							Body:  "Business with this name already exists.",
-						})
-						duplicates = true
-						break
+						duplicateName = true
 					}
 				} else if k == "business_id" {
 					if v == a.businessID {
-						ctx.Notifications().New(app.Notification{
-							Title: "Registration error",
-							Body:  "Business with this ID already exists.",
-						})
-						duplicates = true
-						break
+						duplicateBusinessID = true
 					}
+				} else if k == "country_code" {
+					sameCountry = true
 				}
 			}
 		}
 	}
 
-	return duplicates
+	if sameCountry && duplicateName {
+		ctx.Notifications().New(app.Notification{
+			Title: "Registration error",
+			Body:  "Business with this name already exists.",
+		})
+		return true
+	} else if sameCountry && duplicateBusinessID {
+		ctx.Notifications().New(app.Notification{
+			Title: "Registration error",
+			Body:  "Business with this ID already exists in your country.",
+		})
+		return true
+	}
+
+	return false
 }
 
 func (a *auth) beginRegistration(ctx app.Context) {
@@ -736,7 +862,7 @@ func (a *auth) beginRegistration(ctx app.Context) {
 
 	// Generate a random challenge
 	// Create a new random source seeded with the current time
-	r := mathRand.New(mathRand.NewSource(time.Now().UnixNano()))
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	challengeByteArray := make([]byte, 32)
 	r.Read(challengeByteArray)
 	challenge := app.Window().Get("Uint8Array").New(len(challengeByteArray)) // Generate a random challenge
@@ -762,12 +888,17 @@ func (a *auth) beginRegistration(ctx app.Context) {
 			cred := args[0] // The PublicKeyCredential object
 			// Get the credentialId
 			credentialID := cred.Get("id").String()
-			a.createUser(ctx, userID, credentialID)
+			a.userID = userID
+			a.credentialID = credentialID
 			ctx.SetState("userID", userID)
 			if len(a.businessID) > 0 {
 				ctx.SetState("isBusiness", true)
 			}
-			a.beginLogin(ctx, credentialID)
+			if a.isCountry {
+				a.sh.UpdateCountryAccount("Germany", "123456789", "Zigmund Paprikashliev", "[-0.0673568,0.0234374,0.0802006,-0.0631915,-0.0686559,-0.0847427,-0.0515263,-0.1155665,0.1495542,-0.1037179,0.1790959,-0.0015682,-0.2226413,-0.050798,-0.0436366,0.120865,-0.1862528,-0.0986364,-0.0070285,-0.0205311,0.1345131,0.1120488,0.1475301,0.1279192,-0.2086958,-0.302754,-0.1117638,-0.0752963,-0.0156373,-0.0942581,0.010295,0.1110142,-0.1910131,0.0031465,0.0200539,0.1487437,-0.0096367,-0.0923902,0.1378625,0.027024,-0.2523024,-0.0762603,0.0163836,0.3076439,0.1521883,-0.0481748,0.0311912,-0.0459495,0.0724058,-0.2650769,-0.0102193,0.153466,-0.0181576,0.012071,0.0954404,-0.1148628,0.0752044,0.0939575,-0.1404806,0.0166856,0.0178389,-0.1034788,0.0485206,-0.0392122,0.1182094,0.0230354,-0.1008821,-0.1097133,0.0994171,-0.1891849,-0.0356221,0.1585451,-0.1541384,-0.1974083,-0.3089304,-0.0857801,0.3778991,0.075122,-0.1312303,0.094451,-0.0267344,0.020191,0.0687223,0.1576998,0.0024204,0.1569585,-0.1685978,0.130646,0.1625986,-0.0988349,0.0168352,0.2774154,0.013526,-0.0127363,0.112529,0.1045961,-0.1005734,0.0173907,-0.1334615,0.0534191,0.0694218,-0.073896,-0.0183913,0.0993738,-0.1585376,0.1131142,0.0016718,-0.0896451,-0.0046888,-0.0411574,-0.1226987,-0.1067363,0.1192402,-0.2494856,0.087643,0.2089535,-0.0419069,0.1515342,-0.0348665,0.1065585,-0.0879387,-0.0429889,-0.0769198,-0.0358359,0.0283674,-0.0343756,-0.0201668,-0.0680671]", a.credentialID)
+			} else {
+				a.createUser(ctx)
+			}
 		} else {
 			ctx.Notifications().New(app.Notification{
 				Title: "Registration error",
@@ -804,10 +935,10 @@ func (a *auth) beginRegistration(ctx app.Context) {
 	}))
 }
 
-func (a *auth) beginLogin(ctx app.Context, credentialID string) {
+func (a *auth) beginLogin(ctx app.Context) {
 	// Generate a random challenge
 	// Create a new random source seeded with the current time
-	r := mathRand.New(mathRand.NewSource(time.Now().UnixNano()))
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	challengeByteArray := make([]byte, 32)
 	r.Read(challengeByteArray)
 	challenge := app.Window().Get("Uint8Array").New(len(challengeByteArray)) // Generate a random challenge
@@ -826,7 +957,7 @@ func (a *auth) beginLogin(ctx app.Context, credentialID string) {
 	// Convert credentialID to Uint8Array (if it isn't already)
 	// Assuming credentialID is a *string* representation of the ID, if not then this conversion is not needed
 	encoder := app.Window().Get("TextEncoder").New()
-	credentialIDUint8Array := encoder.Call("encode", credentialID)
+	credentialIDUint8Array := encoder.Call("encode", a.credentialID)
 	credDescriptor.Set("id", credentialIDUint8Array)
 
 	// Add the credential descriptor to the allowCredentials array
