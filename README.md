@@ -142,28 +142,50 @@ They need coordination. We need only connection.
 
 The app runs on the public IPFS network. In order to use it follow the steps below:
 
-1. Install the official IPFS Desktop http://docs.ipfs.io/install/ipfs-desktop/
+1. Install Linux
 2. Install IPFS Companion http://docs.ipfs.io/install/ipfs-companion/
 3. Install golang 1.20 or later version - https://go.dev/doc/install
 4.  Clone https://github.com/stateless-minds/kubo to your local machine
-```
-git clone https://github.com/stateless-minds/kubo.git
-```
-5.  Follow the instructions here to open your config file: https://github.com/ipfs/kubo/blob/master/docs/config.md. Usually it's `~/.ipfs/config` on Linux. Add the following snippet to the `HTTPHeaders`:
+`git clone https://github.com/stateless-minds/kubo.git`
+5. Add `ipns.localhost` to `127.0.0.1` in your `etc/hosts`
+6. Build IPFS
+`make build`
+7. Init IPFS
+`./cmd/ipfs/ipfs init`
+8.  Follow the instructions here to open your config file: https://github.com/ipfs/kubo/blob/master/docs/config.md. Usually it's `~/.ipfs/config` on Linux. Add the following snippet to the `HTTPHeaders`:
 ```{
   "API": {
     "HTTPHeaders": {
-      "Access-Control-Allow-Origin": ["webui://-", "http://localhost:3000", "http://k51qzi5uqu5djkqrrcswqzxsdg3r9fxtzatjac00a2txm7woss7s78s0qihxgr.ipns.localhost:8080", "http://127.0.0.1:5001", "https://webui.ipfs.io"],
+      "Access-Control-Allow-Origin": ["webui://-", "http://k51qzi5uqu5dh3jtovwbzav37z8fdhn05utwojxagysmk23dv1ezu1n0lr0thn.ipns.localhost:8080", "http://127.0.0.1:5001", "https://webui.ipfs.io"],
       "Access-Control-Allow-Credentials": ["true"],
       "Access-Control-Allow-Methods": ["PUT", "POST"]
     }
   },
  ```
-6. Run the daemon:
+ and
+ ```
+ "Gateway": {
+    "DeserializedResponses": null,
+    "DisableHTMLErrors": null,
+    "ExposeRoutingAPI": null,
+    "HTTPHeaders": {},
+    "NoDNSLink": false,
+    "NoFetch": false,
+    "PublicGateways": {
+	"localhost": {
+	  "UseSubdomains": true,
+	  "Paths": ["/ipfs", "/ipns", "/api"]
+	}
+    },
+    "RootRedirect": ""
+  },
+
+ ```
+9. Run the daemon:
 + `.cmd/ipfs/ipfs daemon --enable-pubsub-experiment`
 
-7.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djkqrrcswqzxsdg3r9fxtzatjac00a2txm7woss7s78s0qihxgr">Cyber Gubi</a>
-8.  Pin it to your local node so that you become a permanent host of it while you have IPFS daemon running
+10.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djkqrrcswqzxsdg3r9fxtzatjac00a2txm7woss7s78s0qihxgr">Cyber Gubi</a>
+11.  Pin it to your local node so that you become a permanent host of it while you have IPFS daemon running
 ![SetPinning](./assets/pin.png)
 ![PinToLocalNode](./assets/pin-to-local-node.png)
 

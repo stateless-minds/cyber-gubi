@@ -172,9 +172,9 @@ func (a *auth) OnMount(ctx app.Context) {
 	a.sh = sh
 
 	wconfig := &webauthn.Config{
-		RPDisplayName: "cyber-gubi",                      // Display Name for your site
-		RPID:          "localhost",                       // Generally the FQDN for your site
-		RPOrigins:     []string{"http://localhost:8000"}, // Allowed origins for WebAuthn requests
+		RPDisplayName: "cyber-gubi",                           // Display Name for your site
+		RPID:          "ipns.localhost",                       // Generally the FQDN for your site
+		RPOrigins:     []string{"http://ipns.localhost:8080"}, // Allowed origins for WebAuthn requests
 	}
 
 	var err error
@@ -908,21 +908,21 @@ func (a *auth) beginRegistration(ctx app.Context) {
 		return nil
 	})).Call("catch", app.FuncOf(func(this app.Value, p []app.Value) interface{} {
 		if len(p) > 0 {
-			err := p[0]
+			// err := p[0]
 			// Attempt to read the error message
-			var errorMessage string
-			if err.Get("message").String() != "" {
-				errorMessage = err.Get("message").String() // Standard way to get the message
-			} else if err.Get("error").String() != "" {
-				errorMessage = err.Get("error").String() // Some errors might have an 'error' property
-			} else {
-				errorMessage = "Unknown error occurred."
-			}
+			// var errorMessage string
+			// if err.Get("message").String() != "" {
+			// 	errorMessage = err.Get("message").String() // Standard way to get the message
+			// } else if err.Get("error").String() != "" {
+			// 	errorMessage = err.Get("error").String() // Some errors might have an 'error' property
+			// } else {
+			// 	errorMessage = "Unknown error occurred."
+			// }
 
 			// Notify user through UI instead of terminating application
 			ctx.Notifications().New(app.Notification{
 				Title: "Registration error",
-				Body:  "Credential creation failed: " + errorMessage,
+				Body:  "Credential creation failed: " + a.webAuthn.Config.RPID,
 			})
 		} else {
 			ctx.Notifications().New(app.Notification{
@@ -964,7 +964,7 @@ func (a *auth) beginLogin(ctx app.Context) {
 	allowCredentials.Call("push", credDescriptor)
 	obj := app.Window().Get("Object").New()
 	obj.Set("challenge", challenge)
-	obj.Set("rpId", "localhost")
+	obj.Set("rpId", a.webAuthn.Config.RPID)
 	obj.Set("userVerification", "required")
 	obj.Set("allowCredentials:", allowCredentials)
 	obj.Set("publicKey", obj)
@@ -992,21 +992,21 @@ func (a *auth) beginLogin(ctx app.Context) {
 		return nil
 	})).Call("catch", app.FuncOf(func(this app.Value, p []app.Value) interface{} {
 		if len(p) > 0 {
-			err := p[0]
-			// Attempt to read the error message
-			var errorMessage string
-			if err.Get("message").String() != "" {
-				errorMessage = err.Get("message").String() // Standard way to get the message
-			} else if err.Get("error").String() != "" {
-				errorMessage = err.Get("error").String() // Some errors might have an 'error' property
-			} else {
-				errorMessage = "Unknown error occurred."
-			}
+			// err := p[0]
+			// // Attempt to read the error message
+			// var errorMessage string
+			// if err.Get("message").String() != "" {
+			// 	errorMessage = err.Get("message").String() // Standard way to get the message
+			// } else if err.Get("error").String() != "" {
+			// 	errorMessage = err.Get("error").String() // Some errors might have an 'error' property
+			// } else {
+			// 	errorMessage = "Unknown error occurred."
+			// }
 
 			// Notify user through UI instead of terminating application
 			ctx.Notifications().New(app.Notification{
 				Title: "Login error",
-				Body:  "Credential fetching failed: " + errorMessage,
+				Body:  "Credential fetching failed: " + a.webAuthn.Config.RPID,
 			})
 		} else {
 			ctx.Notifications().New(app.Notification{
