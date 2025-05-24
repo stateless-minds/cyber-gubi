@@ -184,7 +184,7 @@ The app runs on the public IPFS network. In order to use it follow the steps bel
 9. Run the daemon:
 + `.cmd/ipfs/ipfs daemon --enable-pubsub-experiment`
 
-10.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djkqrrcswqzxsdg3r9fxtzatjac00a2txm7woss7s78s0qihxgr">Cyber Gubi</a>
+10.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djbxska9ryliqt6rik7gfy44wb46xub92gbhnsy3c0n5g66phsq">Cyber Gubi</a>
 11.  Pin it to your local node so that you cohost it every time your IPFS daemon is running
 ```
 11.1. Open your IPFS dashboard
