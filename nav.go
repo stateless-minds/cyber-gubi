@@ -202,7 +202,7 @@ func (n *nav) Render() app.UI {
 										app.Div().Class("tooltip__initiator").Body(
 											app.A().Text("For Businesses").OnClick(n.registerBusiness),
 										),
-										app.Div().Class("tooltip__item").Text("Coming soon! Join the waitlist"),
+										app.Div().Class("tooltip__item").Text("Coming soon! Join the waitlist and check https://github.com/stateless-minds/cyber-gubi for opening announcement."),
 									),
 								),
 							)

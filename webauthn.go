@@ -172,9 +172,9 @@ func (a *auth) OnMount(ctx app.Context) {
 	a.sh = sh
 
 	wconfig := &webauthn.Config{
-		RPDisplayName: "cyber-gubi",                           // Display Name for your site
-		RPID:          "ipns.localhost",                       // Generally the FQDN for your site
-		RPOrigins:     []string{"http://ipns.localhost:8080"}, // Allowed origins for WebAuthn requests
+		RPDisplayName: "cyber-gubi",                      // Display Name for your site
+		RPID:          "localhost",                       // Generally the FQDN for your site
+		RPOrigins:     []string{"http://localhost:8000"}, // Allowed origins for WebAuthn requests
 	}
 
 	var err error
@@ -503,6 +503,16 @@ func (a *auth) doCheck(ctx app.Context, e app.Event) {
 			ctx.SetState("countryCode", u.CountryCode)
 
 			currentUser := u
+
+			// business waitlist
+			if len(currentUser.BusinessID) > 0 {
+				ctx.Notifications().New(app.Notification{
+					Title: "Check back later",
+					Body:  "Cyber-gubi is not yet open to businesses and you are in the waitlist. Check https://github.com/stateless-minds/cyber-gubi for an announcement.",
+				})
+				return
+			}
+
 			var descriptorFloat []float64
 			descriptorLSH := make(map[int][]string)
 			matches := make(map[string]int)
@@ -699,10 +709,17 @@ func (a *auth) createUser(ctx app.Context) {
 		ctx.Dispatch(func(ctx app.Context) {
 			a.currentUser = user
 			if len(a.currentUser.BusinessID) > 0 {
-				ctx.SetState("currentUser", a.currentUser).Persist()
-				ctx.SetState("isBusiness", true)
+				// waitlist
+				ctx.Notifications().New(app.Notification{
+					Title: "Check back later",
+					Body:  "Cyber-gubi is not yet open to businesses and you are in the waitlist. Check https://github.com/stateless-minds/cyber-gubi for an announcement.",
+				})
+				return
+				// ctx.SetState("currentUser", a.currentUser).Persist()
+				// ctx.SetState("isBusiness", true)
+			} else {
+				a.beginLogin(ctx)
 			}
-			a.beginLogin(ctx)
 		})
 	})
 }

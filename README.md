@@ -143,12 +143,11 @@ The app runs on the public IPFS network. In order to use it follow the steps bel
 3. Install golang 1.20 or later version - https://go.dev/doc/install
 4.  Clone https://github.com/stateless-minds/kubo to your local machine
 `git clone https://github.com/stateless-minds/kubo.git`
-5. Add `ipns.localhost` to `127.0.0.1` in your `etc/hosts`
-6. Build IPFS
+5. Build IPFS
 `make build`
-7. Init IPFS
+6. Init IPFS
 `./cmd/ipfs/ipfs init`
-8.  Follow the instructions here to open your config file: https://github.com/ipfs/kubo/blob/master/docs/config.md. Usually it's `~/.ipfs/config` on Linux. Add the following snippet to the `HTTPHeaders`:
+7.  Follow the instructions here to open your config file: https://github.com/ipfs/kubo/blob/master/docs/config.md. Usually it's `~/.ipfs/config` on Linux. Add the following snippet to the `HTTPHeaders`:
 ```{
   "API": {
     "HTTPHeaders": {
@@ -177,18 +176,27 @@ The app runs on the public IPFS network. In order to use it follow the steps bel
   },
 
  ```
-9. Run the daemon:
+8. Run the daemon:
 + `.cmd/ipfs/ipfs daemon --enable-pubsub-experiment`
 
-10.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djbxska9ryliqt6rik7gfy44wb46xub92gbhnsy3c0n5g66phsq">Cyber Gubi</a>
-11.  Pin it to your local node so that you cohost it every time your IPFS daemon is running
+9.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djbxska9ryliqt6rik7gfy44wb46xub92gbhnsy3c0n5g66phsq">Cyber Gubi</a>
+10.  Pin it to your local node so that you cohost it every time your IPFS daemon is running
 ```
-11.1. Open your IPFS dashboard
+10.1. Open your IPFS dashboard
+
 http://127.0.0.1:5001/webui
-11.2. In the search bar for Qmhash paste: QmRtJemJxaPS1MoCcHJGgQT8Wv7e4L7PTMjxaJU3ZaBDHC
-11.3 Click on More
-11.4 Click Set Pinning
-11.5 Mark local node and hit Apply
+
+10.1 In your CLI with a running daemon run:
+
+./cmd/ipfs/ipfs ipns name resolve k51qzi5uqu5djbxska9ryliqt6rik7gfy44wb46xub92gbhnsy3c0n5g66phsq
+
+Expected result for example:
+/ipfs/QmRtJemJxaPS1MoCcHJGgQT8Wv7e4L7PTMjxaJU3ZaBDHC
+
+10.2. In the search bar of the web UI search for QmHash by pasting: QmRtJemJxaPS1MoCcHJGgQT8Wv7e4L7PTMjxaJU3ZaBDHC
+10.3 Click on More
+10.4 Click Set Pinning
+10.5 Mark local node and hit Apply
 ```
 
 
