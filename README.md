@@ -1,7 +1,3 @@
-# cyber-gubi - Guaranteed unconditional basic income digital currency
-
-## Screenshots
-
 <a display="inline" href="./assets/authentication.png?raw=true">
 <img src="./assets/authentication.png" width="20%" alt="Screenshot of the authentication screen" title="Screenshot of the authentication screen">
 </a>
