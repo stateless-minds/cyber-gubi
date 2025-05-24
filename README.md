@@ -156,7 +156,7 @@ The app runs on the public IPFS network. In order to use it follow the steps bel
 ```{
   "API": {
     "HTTPHeaders": {
-      "Access-Control-Allow-Origin": ["webui://-", "http://k51qzi5uqu5dh3jtovwbzav37z8fdhn05utwojxagysmk23dv1ezu1n0lr0thn.ipns.localhost:8080", "http://127.0.0.1:5001", "https://webui.ipfs.io"],
+      "Access-Control-Allow-Origin": ["webui://-", "http://k51qzi5uqu5djbxska9ryliqt6rik7gfy44wb46xub92gbhnsy3c0n5g66phsq.ipns.localhost:8080", "http://127.0.0.1:5001", "https://webui.ipfs.io"],
       "Access-Control-Allow-Credentials": ["true"],
       "Access-Control-Allow-Methods": ["PUT", "POST"]
     }
