@@ -185,9 +185,16 @@ The app runs on the public IPFS network. In order to use it follow the steps bel
 + `.cmd/ipfs/ipfs daemon --enable-pubsub-experiment`
 
 10.  Navigate to <a href="https://ipfs.io/ipns/k51qzi5uqu5djkqrrcswqzxsdg3r9fxtzatjac00a2txm7woss7s78s0qihxgr">Cyber Gubi</a>
-11.  Pin it to your local node so that you become a permanent host of it while you have IPFS daemon running
-![SetPinning](./assets/pin.png)
-![PinToLocalNode](./assets/pin-to-local-node.png)
+11.  Pin it to your local node so that you cohost it every time your IPFS daemon is running
+```
+11.1. Open your IPFS dashboard
+http://127.0.0.1:5001/webui
+11.2. In the search bar for Qmhash paste: QmRtJemJxaPS1MoCcHJGgQT8Wv7e4L7PTMjxaJU3ZaBDHC
+11.3 Click on More
+11.4 Click Set Pinning
+11.5 Mark local node and hit Apply
+```
+
 
 ## Path to mainstream adoption
 
