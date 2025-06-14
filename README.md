@@ -157,25 +157,6 @@ The app runs on the public IPFS network. In order to use it follow the steps bel
     }
   },
  ```
- and
- ```
- "Gateway": {
-    "DeserializedResponses": null,
-    "DisableHTMLErrors": null,
-    "ExposeRoutingAPI": null,
-    "HTTPHeaders": {},
-    "NoDNSLink": false,
-    "NoFetch": false,
-    "PublicGateways": {
-	"localhost": {
-	  "UseSubdomains": true,
-	  "Paths": ["/ipfs", "/ipns", "/api"]
-	}
-    },
-    "RootRedirect": ""
-  },
-
- ```
 8. Run the daemon:
 + `.cmd/ipfs/ipfs daemon --enable-pubsub-experiment`
 
@@ -242,8 +223,8 @@ Expected result for example:
 ## TODO
 
 - [x] Add Presentation Attack Detection model to prevent malicious attempts to abuse facial recognition
-- [ ] Introduce registration for businesses via waiting list
-- [ ] Introduce governments to collect tax - they can view all transactions and collect for their own country. Governments have no control over the system and can only collect if they have an account
+- [x] Introduce registration for businesses via waiting list
+- [x] Introduce governments to collect tax - they can view all transactions and collect for their own country. Governments have no control over the system and can only collect if they have an account
 - [ ] Update kubo to latest version
 - [ ] Port go-ipfs-api orbit-db integration to kubo/rpc
 
