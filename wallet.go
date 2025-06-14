@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"sort"
 	"strconv"
@@ -209,32 +208,32 @@ func (w *wallet) getIncome(ctx app.Context) {
 		income := []Income{}
 
 		if len(i) == 0 {
-			log.Fatal(errors.New("no income set"))
-		}
+			log.Printf("no income set")
+		} else {
+			err = json.Unmarshal([]byte(i), &income) // Unmarshal the byte slice directly
+			if err != nil {
+				log.Fatal(err)
+			}
 
-		err = json.Unmarshal([]byte(i), &income) // Unmarshal the byte slice directly
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		ctx.Dispatch(func(ctx app.Context) {
-			for _, inc := range income {
-				if inc.Period == strconv.Itoa(time.Now().Year())+"/"+strconv.Itoa(int(time.Now().Month())) {
-					w.income = inc
+			ctx.Dispatch(func(ctx app.Context) {
+				for _, inc := range income {
+					if inc.Period == strconv.Itoa(time.Now().Year())+"/"+strconv.Itoa(int(time.Now().Month())) {
+						w.income = inc
+					}
 				}
-			}
 
-			// check if there is a matching income year and month to current moment
-			if w.income.Period == strconv.Itoa(time.Now().Year())+"/"+strconv.Itoa(int(time.Now().Month())) {
-				w.wallet.Balance = (w.wallet.Balance + w.income.Amount)
-				w.wallet.Income = w.income.Amount
-				w.wallet.LastReceived = strconv.Itoa(time.Now().Year()) + "/" + strconv.Itoa(int(time.Now().Month()))
-				ctx.SetState("balance", w.wallet)
-				w.updateBalance(ctx)
-			} else {
-				w.getTransactions(ctx)
-			}
-		})
+				// check if there is a matching income year and month to current moment
+				if w.income.Period == strconv.Itoa(time.Now().Year())+"/"+strconv.Itoa(int(time.Now().Month())) {
+					w.wallet.Balance = (w.wallet.Balance + w.income.Amount)
+					w.wallet.Income = w.income.Amount
+					w.wallet.LastReceived = strconv.Itoa(time.Now().Year()) + "/" + strconv.Itoa(int(time.Now().Month()))
+					ctx.SetState("balance", w.wallet)
+					w.updateBalance(ctx)
+				} else {
+					w.getTransactions(ctx)
+				}
+			})
+		}
 	})
 }
 

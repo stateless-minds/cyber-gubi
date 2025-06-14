@@ -220,11 +220,12 @@ func (a *auth) OnMount(ctx app.Context) {
 	// 	log.Fatal(err)
 	// }
 
-	// w.deleteIncome()
-	// w.deleteTransactions()
-	// w.deleteInflation()
-	// w.deletePlans()
-	// w.deleteSubscriptions()
+	// a.deleteIncome()
+	// a.deleteTransactions()
+	// a.deleteInflation()
+	// a.deletePlans()
+	// a.deleteSubscriptions()
+	// a.getInflation()
 	// return
 
 	ctx.ObserveState("entity", &a.entity)
@@ -253,36 +254,43 @@ func (a *auth) OnMount(ctx app.Context) {
 		})
 }
 
-func (w *wallet) deleteIncome() {
-	err := w.sh.OrbitDocsDelete(dbIncome, "all")
+func (a *auth) deleteIncome() {
+	err := a.sh.OrbitDocsDelete(dbIncome, "all")
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (w *wallet) deleteTransactions() {
-	err := w.sh.OrbitDocsDelete(dbTransaction, "all")
+func (a *auth) deleteTransactions() {
+	err := a.sh.OrbitDocsDelete(dbTransaction, "all")
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (w *wallet) deleteInflation() {
-	err := w.sh.OrbitDocsDelete(dbInflation, "all")
+func (a *auth) deleteInflation() {
+	err := a.sh.OrbitDocsDelete(dbInflation, "all")
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (w *wallet) deletePlans() {
-	err := w.sh.OrbitDocsDelete(dbPlan, "all")
+func (a *auth) getInflation() {
+	_, err := a.sh.OrbitDocsQuery(dbInflation, "all", "")
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (w *wallet) deleteSubscriptions() {
-	err := w.sh.OrbitDocsDelete(dbSubscription, "all")
+func (a *auth) deletePlans() {
+	err := a.sh.OrbitDocsDelete(dbPlan, "all")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (a *auth) deleteSubscriptions() {
+	err := a.sh.OrbitDocsDelete(dbSubscription, "all")
 	if err != nil {
 		log.Fatal(err)
 	}

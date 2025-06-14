@@ -177,10 +177,10 @@ func (n *nav) Render() app.UI {
 									app.A().Href("/terms-business").Target("_blank").Text("Terms of Use"),
 								),
 								app.Li().Body(
-									app.A().Href("/privacy-business").Target("_blank").Text("Privacy"),
+									app.A().Href("/privacy").Target("_blank").Text("Privacy"),
 								),
 								app.Li().Body(
-									app.A().Href("/cookie-business").Target("_blank").Text("Cookie"),
+									app.A().Href("/cookie").Target("_blank").Text("Cookie"),
 								),
 								app.Div().Class("menu-btn").Body(
 									app.Button().ID("accept-terms-business").Class("submit").Type("submit").Text("Accept Terms").OnClick(n.acceptTermsBusiness),
@@ -303,10 +303,10 @@ func (n *nav) Render() app.UI {
 								app.A().Href("/terms-government").Text("Terms of Use"),
 							),
 							app.Li().Body(
-								app.A().Href("/privacy-government").Text("Privacy"),
+								app.A().Href("/privacy").Text("Privacy"),
 							),
 							app.Li().Body(
-								app.A().Href("/cookie-government").Text("Cookie"),
+								app.A().Href("/cookie").Text("Cookie"),
 							),
 							app.Li().Body(
 								app.A().Text("Delete Account").OnClick(n.deleteAccount),
