@@ -197,37 +197,6 @@ func (a *auth) OnMount(ctx app.Context) {
 		})
 	})
 
-	// a.isCountry = true
-	// a.beginRegistration(ctx)
-
-	// a.getUsers()
-	// a.deleteUsers()
-	// a.getCountryWallets()
-	// a.deleteWallets()
-
-	// err = a.sh.CreateCountryAccounts()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// err = a.sh.UpdateCountryAccount("Bulgaria", "123456789", "[-0.0627824,0.0557961,0.0648634,0.0306014,-0.1085096,-0.0788037,0.075048,-0.1441734,0.1718586,-0.0523681,0.2802132,-0.0567889,-0.1854445,-0.0597611,0.0114786,0.0480673,-0.0496276,-0.1171764,-0.0804037,-0.0205053,0.0530239,0.0250173,0.0605471,0.0514089,-0.1221177,-0.3250661,-0.0808559,-0.0847882,0.0657298,-0.0954366,0.0462636,0.1540155,-0.1214376,-0.1278621,0.0442731,0.0386029,-0.0235876,-0.0453274,0.2145044,-0.0412263,-0.1723431,0.030252,-0.0042006,0.3438928,0.166643,-0.0065849,0.067531,-0.1344344,0.072491,-0.2080505,0.1440588,0.0992688,0.0965577,0.0192163,0.1379771,-0.1077227,0.0233076,0.0733253,-0.2029213,0.1296015,0.1562316,-0.0187693,0.0118775,-0.0894548,0.1507326,0.0448835,-0.065876,-0.0924555,0.0696441,-0.1390269,-0.0671479,0.1045424,-0.1480977,-0.2013738,-0.2597257,0.060221,0.4447426,0.157009,-0.2232685,0.0326051,-0.0309981,0.007613,0.1382988,0.0460388,-0.0278781,-0.0480645,-0.1229947,0.0531989,0.1622549,0.0077055,-0.1267886,0.2304303,-0.0159248,-0.0801122,0.0890828,0.0514886,-0.0796351,0.0404276,-0.1380173,-0.0350928,0.0846586,-0.0621224,0.0212492,0.0748239,-0.1815445,0.1994248,-0.0428519,0.0419655,0.037446,-0.0585382,-0.108566,0.0453554,0.1541657,-0.2565612,0.1867651,0.0518779,0.0431454,0.1520243,0.0069921,0.0518195,0.010262,0.0022844,-0.0952344,-0.0429271,0.0531778,0.0003472,0.1194178,0.0360485]")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// err = a.sh.CreateCountryWallets()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// a.deleteIncome()
-	// a.deleteTransactions()
-	// a.deleteInflation()
-	// a.deletePlans()
-	// a.deleteSubscriptions()
-	// a.getInflation()
-	// return
-
 	ctx.ObserveState("entity", &a.entity)
 
 	ctx.ObserveState("termsAccepted", &a.termsAccepted).
@@ -393,12 +362,12 @@ func (a *auth) getIncome(ctx app.Context) {
 		income := []Income{}
 
 		if len(i) == 0 {
-			log.Fatal(err)
-		}
-
-		err = json.Unmarshal([]byte(i), &income) // Unmarshal the byte slice directly
-		if err != nil {
-			log.Fatal(err)
+			log.Println("no income set")
+		} else {
+			err = json.Unmarshal([]byte(i), &income) // Unmarshal the byte slice directly
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 
 		ctx.Dispatch(func(ctx app.Context) {
@@ -723,8 +692,6 @@ func (a *auth) createUser(ctx app.Context) {
 					Body:  "Cyber-gubi is not yet open to businesses and you are in the waitlist. Check https://github.com/stateless-minds/cyber-gubi for an announcement.",
 				})
 				return
-				// ctx.SetState("currentUser", a.currentUser).Persist()
-				// ctx.SetState("isBusiness", true)
 			} else {
 				a.beginLogin(ctx)
 			}
@@ -919,11 +886,8 @@ func (a *auth) beginRegistration(ctx app.Context) {
 			if len(a.businessID) > 0 {
 				ctx.SetState("isBusiness", true)
 			}
-			if a.isCountry {
-				a.sh.UpdateCountryAccount("Germany", "123456789", "Zigmund Paprikashliev", "[-0.0673568,0.0234374,0.0802006,-0.0631915,-0.0686559,-0.0847427,-0.0515263,-0.1155665,0.1495542,-0.1037179,0.1790959,-0.0015682,-0.2226413,-0.050798,-0.0436366,0.120865,-0.1862528,-0.0986364,-0.0070285,-0.0205311,0.1345131,0.1120488,0.1475301,0.1279192,-0.2086958,-0.302754,-0.1117638,-0.0752963,-0.0156373,-0.0942581,0.010295,0.1110142,-0.1910131,0.0031465,0.0200539,0.1487437,-0.0096367,-0.0923902,0.1378625,0.027024,-0.2523024,-0.0762603,0.0163836,0.3076439,0.1521883,-0.0481748,0.0311912,-0.0459495,0.0724058,-0.2650769,-0.0102193,0.153466,-0.0181576,0.012071,0.0954404,-0.1148628,0.0752044,0.0939575,-0.1404806,0.0166856,0.0178389,-0.1034788,0.0485206,-0.0392122,0.1182094,0.0230354,-0.1008821,-0.1097133,0.0994171,-0.1891849,-0.0356221,0.1585451,-0.1541384,-0.1974083,-0.3089304,-0.0857801,0.3778991,0.075122,-0.1312303,0.094451,-0.0267344,0.020191,0.0687223,0.1576998,0.0024204,0.1569585,-0.1685978,0.130646,0.1625986,-0.0988349,0.0168352,0.2774154,0.013526,-0.0127363,0.112529,0.1045961,-0.1005734,0.0173907,-0.1334615,0.0534191,0.0694218,-0.073896,-0.0183913,0.0993738,-0.1585376,0.1131142,0.0016718,-0.0896451,-0.0046888,-0.0411574,-0.1226987,-0.1067363,0.1192402,-0.2494856,0.087643,0.2089535,-0.0419069,0.1515342,-0.0348665,0.1065585,-0.0879387,-0.0429889,-0.0769198,-0.0358359,0.0283674,-0.0343756,-0.0201668,-0.0680671]", a.credentialID)
-			} else {
-				a.createUser(ctx)
-			}
+
+			a.createUser(ctx)
 		} else {
 			ctx.Notifications().New(app.Notification{
 				Title: "Registration error",
@@ -933,21 +897,21 @@ func (a *auth) beginRegistration(ctx app.Context) {
 		return nil
 	})).Call("catch", app.FuncOf(func(this app.Value, p []app.Value) interface{} {
 		if len(p) > 0 {
-			// err := p[0]
+			err := p[0]
 			// Attempt to read the error message
-			// var errorMessage string
-			// if err.Get("message").String() != "" {
-			// 	errorMessage = err.Get("message").String() // Standard way to get the message
-			// } else if err.Get("error").String() != "" {
-			// 	errorMessage = err.Get("error").String() // Some errors might have an 'error' property
-			// } else {
-			// 	errorMessage = "Unknown error occurred."
-			// }
+			var errorMessage string
+			if err.Get("message").String() != "" {
+				errorMessage = err.Get("message").String() // Standard way to get the message
+			} else if err.Get("error").String() != "" {
+				errorMessage = err.Get("error").String() // Some errors might have an 'error' property
+			} else {
+				errorMessage = "Unknown error occurred."
+			}
 
 			// Notify user through UI instead of terminating application
 			ctx.Notifications().New(app.Notification{
 				Title: "Registration error",
-				Body:  "Credential creation failed: " + a.webAuthn.Config.RPID,
+				Body:  "Credential creation failed: " + errorMessage,
 			})
 		} else {
 			ctx.Notifications().New(app.Notification{
@@ -1017,21 +981,21 @@ func (a *auth) beginLogin(ctx app.Context) {
 		return nil
 	})).Call("catch", app.FuncOf(func(this app.Value, p []app.Value) interface{} {
 		if len(p) > 0 {
-			// err := p[0]
-			// // Attempt to read the error message
-			// var errorMessage string
-			// if err.Get("message").String() != "" {
-			// 	errorMessage = err.Get("message").String() // Standard way to get the message
-			// } else if err.Get("error").String() != "" {
-			// 	errorMessage = err.Get("error").String() // Some errors might have an 'error' property
-			// } else {
-			// 	errorMessage = "Unknown error occurred."
-			// }
+			err := p[0]
+			// Attempt to read the error message
+			var errorMessage string
+			if err.Get("message").String() != "" {
+				errorMessage = err.Get("message").String() // Standard way to get the message
+			} else if err.Get("error").String() != "" {
+				errorMessage = err.Get("error").String() // Some errors might have an 'error' property
+			} else {
+				errorMessage = "Unknown error occurred."
+			}
 
 			// Notify user through UI instead of terminating application
 			ctx.Notifications().New(app.Notification{
 				Title: "Login error",
-				Body:  "Credential fetching failed: " + a.webAuthn.Config.RPID,
+				Body:  "Credential fetching failed: " + errorMessage,
 			})
 		} else {
 			ctx.Notifications().New(app.Notification{
