@@ -288,8 +288,6 @@ async function initializeFaceRecognition(referenceDescriptors) {
                 }
             }
         } else {
-            drawBox.options.label = `Confidence: ${detection.detection.score.toFixed(2)}`;
-            drawBox.draw(canvas);
             // Show spoof warning
             if (!isRealFace) {
                 ctx.fillStyle = "red";
