@@ -8,7 +8,7 @@ require (
 	github.com/go-webauthn/webauthn v0.11.2
 	github.com/google/uuid v1.6.0
 	github.com/maxence-charriere/go-app/v10 v10.0.9
-	github.com/stateless-minds/go-ipfs-api v0.8.18
+	github.com/stateless-minds/go-ipfs-api v0.8.19
 )
 
 require (
@@ -20,6 +20,7 @@ require (
 	github.com/go-webauthn/x v0.1.14 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/google/go-tpm v0.9.1 // indirect
+	github.com/ipfs/boxo v0.31.1-0.20250603090712-f33982933143 // indirect
 	github.com/ipfs/go-cid v0.5.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
@@ -38,7 +39,6 @@ require (
 	github.com/multiformats/go-multistream v0.6.1 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
-	github.com/stateless-minds/boxo v0.32.3 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476 // indirect

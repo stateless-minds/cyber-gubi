@@ -220,13 +220,12 @@ Expected result for example:
 + How does closing an account influence the economy?
     + Closing an account means all money of the person are destroyed. This will cause deflation as the money supply gets lower.
 
-## TODO
+## ROADMAP
 
 - [x] Add Presentation Attack Detection model to prevent malicious attempts to abuse facial recognition
 - [x] Introduce registration for businesses via waiting list
 - [x] Introduce governments to collect tax - they can view all transactions and collect for their own country. Governments have no control over the system and can only collect if they have an account
-- [ ] Update kubo to latest version
-- [ ] Port go-ipfs-api orbit-db integration to kubo/rpc
+- [x] Update kubo to latest version
 
 ## Acknowledgments
 
