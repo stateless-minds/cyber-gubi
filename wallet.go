@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	shell "github.com/stateless-minds/go-ipfs-api"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 const dbIncome = "income"
@@ -19,7 +19,7 @@ const dbWallet = "wallet"
 // embedding app.Compo into a struct.
 type wallet struct {
 	app.Compo
-	sh           *shell.Shell
+	sh           *rpc.HttpApi
 	loggedIn     bool
 	isBusiness   bool
 	isGovernment bool
@@ -47,7 +47,10 @@ type Income struct {
 }
 
 func (w *wallet) OnMount(ctx app.Context) {
-	sh := shell.NewShell("localhost:5001")
+	sh, err := rpc.NewLocalApi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	w.sh = sh
 
 	ctx.GetState("loggedIn", &w.loggedIn)

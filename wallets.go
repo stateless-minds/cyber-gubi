@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	shell "github.com/stateless-minds/go-ipfs-api"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 // wallets is a component that holds cyber-gubi. A component is a
@@ -14,7 +14,7 @@ import (
 // embedding app.Compo into a struct.
 type wallets struct {
 	app.Compo
-	sh          *shell.Shell
+	sh          *rpc.HttpApi
 	loggedIn    bool
 	userID      string
 	countryCode string
@@ -27,7 +27,10 @@ type wallets struct {
 }
 
 func (w *wallets) OnMount(ctx app.Context) {
-	sh := shell.NewShell("localhost:5001")
+	sh, err := rpc.NewLocalApi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	w.sh = sh
 	w.indexStep = 99
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	shell "github.com/stateless-minds/go-ipfs-api"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 const dbSubscription = "subscription"
@@ -18,7 +18,7 @@ const dbSubscription = "subscription"
 // embedding app.Compo into a struct.
 type subscription struct {
 	app.Compo
-	sh            *shell.Shell
+	sh            *rpc.HttpApi
 	loggedIn      bool
 	userID        string
 	wallet        Wallet
@@ -32,7 +32,10 @@ type subscription struct {
 }
 
 func (s *subscription) OnMount(ctx app.Context) {
-	sh := shell.NewShell("localhost:5001")
+	sh, err := rpc.NewLocalApi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	s.sh = sh
 	s.indexStep = 99
 

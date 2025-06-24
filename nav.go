@@ -5,12 +5,12 @@ import (
 	"log"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	shell "github.com/stateless-minds/go-ipfs-api"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 type nav struct {
 	app.Compo
-	sh            *shell.Shell
+	sh            *rpc.HttpApi
 	loggedIn      bool
 	termsAccepted bool
 	isBusiness    bool
@@ -32,7 +32,10 @@ func (n *nav) OnMount(ctx app.Context) {
 		ctx.GetState("userID", &n.userID)
 		ctx.GetState("isBusiness", &n.isBusiness)
 		ctx.GetState("isGovernment", &n.isGovernment)
-		sh := shell.NewShell("localhost:5001")
+		sh, err := rpc.NewLocalApi()
+		if err != nil {
+			log.Fatal(err)
+		}
 		n.sh = sh
 	}
 

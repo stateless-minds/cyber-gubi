@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	shell "github.com/stateless-minds/go-ipfs-api"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 // client is a component that holds cyber-gubi. A component is a
@@ -14,7 +14,7 @@ import (
 // embedding app.Compo into a struct.
 type client struct {
 	app.Compo
-	sh            *shell.Shell
+	sh            *rpc.HttpApi
 	loggedIn      bool
 	businessName  string
 	wallet        Wallet
@@ -28,7 +28,10 @@ type client struct {
 }
 
 func (c *client) OnMount(ctx app.Context) {
-	sh := shell.NewShell("localhost:5001")
+	sh, err := rpc.NewLocalApi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	c.sh = sh
 	c.indexStep = 99
 

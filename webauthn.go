@@ -14,12 +14,11 @@ import (
 	"strings"
 	"time"
 
-	shell "github.com/stateless-minds/go-ipfs-api"
-
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 const dbUser = "user"
@@ -30,7 +29,7 @@ const dbInflation = "inflation"
 // embedding app.Compo into a struct.
 type auth struct {
 	app.Compo
-	sh                     *shell.Shell
+	sh                     *rpc.HttpApi
 	webAuthn               *webauthn.WebAuthn
 	descriptorJSON         string
 	userID                 string
@@ -168,7 +167,10 @@ func (a *auth) OnMount(ctx app.Context) {
 		a.notificationPermission = ctx.Notifications().RequestPermission()
 	}
 
-	sh := shell.NewShell("localhost:5001")
+	sh, err := rpc.NewLocalApi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	a.sh = sh
 
 	wconfig := &webauthn.Config{
@@ -176,8 +178,6 @@ func (a *auth) OnMount(ctx app.Context) {
 		RPID:          "localhost",                       // Generally the FQDN for your site
 		RPOrigins:     []string{"http://localhost:8000"}, // Allowed origins for WebAuthn requests
 	}
-
-	var err error
 
 	if a.webAuthn, err = webauthn.New(wconfig); err != nil {
 		ctx.Notifications().New(app.Notification{

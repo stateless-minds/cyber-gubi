@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	shell "github.com/stateless-minds/go-ipfs-api"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 const dbTransaction = "transaction"
@@ -18,7 +18,7 @@ const dbTransaction = "transaction"
 // embedding app.Compo into a struct.
 type payment struct {
 	app.Compo
-	sh            *shell.Shell
+	sh            *rpc.HttpApi
 	loggedIn      bool
 	userID        string
 	wallet        Wallet
@@ -58,7 +58,10 @@ type ProductService struct {
 }
 
 func (p *payment) OnMount(ctx app.Context) {
-	sh := shell.NewShell("localhost:5001")
+	sh, err := rpc.NewLocalApi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	p.sh = sh
 
 	// set default number of product inputs

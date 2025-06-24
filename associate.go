@@ -6,7 +6,7 @@ import (
 	"slices"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	shell "github.com/stateless-minds/go-ipfs-api"
+	"github.com/stateless-minds/kubo/client/rpc"
 )
 
 // supplier is a component that holds cyber-gubi. A component is a
@@ -14,7 +14,7 @@ import (
 // embedding app.Compo into a struct.
 type associate struct {
 	app.Compo
-	sh               *shell.Shell
+	sh               *rpc.HttpApi
 	loggedIn         bool
 	userID           string
 	associateName    string
@@ -24,7 +24,10 @@ type associate struct {
 }
 
 func (a *associate) OnMount(ctx app.Context) {
-	sh := shell.NewShell("localhost:5001")
+	sh, err := rpc.NewLocalApi()
+	if err != nil {
+		log.Fatal(err)
+	}
 	a.sh = sh
 
 	ctx.GetState("loggedIn", &a.loggedIn)

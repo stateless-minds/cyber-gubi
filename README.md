@@ -226,7 +226,7 @@ Expected result for example:
 - [x] Introduce registration for businesses via waiting list
 - [x] Introduce governments to collect tax - they can view all transactions and collect for their own country. Governments have no control over the system and can only collect if they have an account
 - [ ] Update kubo to latest version
-- [ ] Port go-ipfs-api orbit-db integration to kubo/rpc
+- [ ] Port kubo/client/rpc orbit-db integration to kubo/rpc
 
 ## Acknowledgments
 
