@@ -169,7 +169,7 @@ http://127.0.0.1:5001/webui
 
 10.1 In your CLI with a running daemon run:
 
-./cmd/ipfs/ipfs ipns name resolve k51qzi5uqu5djbxska9ryliqt6rik7gfy44wb46xub92gbhnsy3c0n5g66phsq
+./cmd/ipfs/ipfs name resolve k51qzi5uqu5djbxska9ryliqt6rik7gfy44wb46xub92gbhnsy3c0n5g66phsq
 
 Expected result for example:
 /ipfs/QmRtJemJxaPS1MoCcHJGgQT8Wv7e4L7PTMjxaJU3ZaBDHC
